@@ -1,0 +1,10 @@
+# Mississippi Lake Levels — static site for GitHub Pages
+__pycache__/
+*.pyc
+.venv/
+venv/
+.mplconfig/
+.DS_Store
+data/*.json.bak
+*.log
+.env

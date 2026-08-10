@@ -2,9 +2,11 @@ name: Update lake briefing
 
 on:
   schedule:
-    # 8:00, 13:00, 18:00 America/Toronto during EDT (UTC-4) → 12:00, 17:00, 22:00 UTC
-    # During EST (UTC-5) these fire one hour "late" locally; adjust seasonally if needed.
-    - cron: "0 12,17,22 * * *"
+    # GitHub cron is UTC and often 5–60+ minutes late on free plans.
+    # Target America/Toronto 8:00 / 13:00 / 18:00 during EDT (UTC-4).
+    - cron: "0 12 * * *" # ~8:00 AM EDT
+    - cron: "0 17 * * *" # ~1:00 PM EDT
+    - cron: "0 22 * * *" # ~6:00 PM EDT
   workflow_dispatch: # manual "Run workflow" button
 
 permissions:
@@ -21,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:

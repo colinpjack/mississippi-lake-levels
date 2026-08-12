@@ -311,8 +311,10 @@ def render_html(series: dict) -> None:
         ", ".join(f"{d} (~bump)" for d in sorted(series.get("rain_bump", {})))
         or "no significant rain bump in current forecast"
     )
+    gap_color = "#0b6e4f" if gap < -0.5 else ("#c45c26" if gap > 0.5 else "#5a7a86")
+    gap_label = "Draining" if gap < -0.5 else ("Filling" if gap > 0.5 else "Balanced")
+    outlook_color = "#0b6e4f" if dcm < -0.5 else ("#c45c26" if dcm > 0.5 else "#5a7a86")
 
-    # Prefer external chart.png for Pages (small HTML); keep format similar to email
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -321,8 +323,31 @@ def render_html(series: dict) -> None:
   <meta http-equiv="refresh" content="1800">
   <title>Mississippi Lake High Water Update</title>
   <meta name="description" content="People of the Lake — Mississippi Lake Ontario water level, inflow/outflow, and dock guidance. Updated several times daily.">
+  <style>
+    .kpi-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }}
+    .kpi {{ background:#f4f8f9; border:1px solid #d7e4e8; border-radius:10px; padding:16px 14px; text-align:center; }}
+    .kpi-label {{ margin:0 0 8px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:#5a7a86; }}
+    .kpi-value {{ margin:0; font-family:Arial,Helvetica,sans-serif; font-size:26px; font-weight:700; color:#1a3a4a; line-height:1.1; }}
+    .kpi-sub {{ margin:8px 0 0 0; font-family:Arial,Helvetica,sans-serif; font-size:12px; color:#6a7c84; line-height:1.35; }}
+    .chart-thumb {{ cursor:zoom-in; max-width:100%; height:auto; border:1px solid #d5dde3; border-radius:6px; display:block; transition:opacity .15s ease; }}
+    .chart-thumb:hover {{ opacity:0.92; }}
+    .lightbox {{ display:none; position:fixed; inset:0; z-index:1000; background:rgba(10,20,28,0.92); align-items:center; justify-content:center; padding:24px; box-sizing:border-box; }}
+    .lightbox.open {{ display:flex; }}
+    .lightbox img {{ max-width:min(1200px,96vw); max-height:92vh; width:auto; height:auto; border-radius:6px; box-shadow:0 12px 40px rgba(0,0,0,0.45); background:#fff; }}
+    .lightbox-close {{ position:fixed; top:16px; right:20px; border:0; background:rgba(255,255,255,0.12); color:#fff; font:600 14px/1 Arial,Helvetica,sans-serif; padding:10px 14px; border-radius:8px; cursor:pointer; }}
+    .lightbox-hint {{ position:fixed; bottom:16px; left:50%; transform:translateX(-50%); color:rgba(255,255,255,0.7); font:12px/1.4 Arial,Helvetica,sans-serif; }}
+    @media (max-width:560px) {{
+      .kpi-grid {{ grid-template-columns:1fr; }}
+      .kpi-value {{ font-size:22px; }}
+    }}
+  </style>
 </head>
 <body style="margin:0;padding:0;background:#eef2f4;font-family:Georgia,'Times New Roman',serif;">
+  <div id="chart-lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Full screen chart" onclick="if(event.target===this)closeChart()">
+    <button type="button" class="lightbox-close" onclick="closeChart()" aria-label="Close">Close ✕</button>
+    <img src="chart.png" alt="Full screen inflow, outflow, and lake level chart">
+    <div class="lightbox-hint">Click outside or press Esc to close</div>
+  </div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef2f4;padding:24px 12px;">
     <tr>
       <td align="center">
@@ -346,29 +371,41 @@ def render_html(series: dict) -> None:
             </td>
           </tr>
           <tr>
-            <td style="padding:20px 32px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f8f9;border:1px solid #d7e4e8;border-radius:6px;">
-                <tr>
-                  <td style="padding:18px 20px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#243036;">
-                    <p style="margin:0 0 12px 0;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#5a7a86;">At a glance</p>
-                    <p style="margin:0 0 6px 0;"><strong>Lake level:</strong> {lake:.2f} m MASL ({vs:+.0f} cm vs early July ~134.10)</p>
-                    <p style="margin:0 0 6px 0;"><strong>Inflow (Ferguson’s Falls):</strong> {ff:.1f} m³/s</p>
-                    <p style="margin:0 0 6px 0;"><strong>Outflow (Appleton):</strong> {ap:.1f} m³/s</p>
-                    <p style="margin:0;"><strong>In − out gap:</strong> {gap:+.1f} m³/s · <strong>Outlook ~7 days:</strong> {proj:.2f} m ({dcm:+.0f} cm)</p>
-                  </td>
-                </tr>
-              </table>
+            <td style="padding:12px 32px 8px 32px;">
+              <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#5a7a86;">At a glance</p>
+              <div class="kpi-grid">
+                <div class="kpi">
+                  <p class="kpi-label">Lake level</p>
+                  <p class="kpi-value">{lake:.2f}<span style="font-size:14px;font-weight:600;color:#5a7a86;"> m</span></p>
+                  <p class="kpi-sub">{vs:+.0f} cm vs early July<br>~134.10 m MASL</p>
+                </div>
+                <div class="kpi">
+                  <p class="kpi-label">In − out gap</p>
+                  <p class="kpi-value" style="color:{gap_color};">{gap:+.1f}</p>
+                  <p class="kpi-sub">m³/s · {gap_label}<br>Inflow {ff:.1f} · Outflow {ap:.1f}</p>
+                </div>
+                <div class="kpi">
+                  <p class="kpi-label">Inflow</p>
+                  <p class="kpi-value">{ff:.1f}</p>
+                  <p class="kpi-sub">m³/s<br>Ferguson’s Falls</p>
+                </div>
+                <div class="kpi">
+                  <p class="kpi-label">7-day outlook</p>
+                  <p class="kpi-value" style="color:{outlook_color};">{proj:.2f}<span style="font-size:14px;font-weight:600;color:#5a7a86;"> m</span></p>
+                  <p class="kpi-sub">{dcm:+.0f} cm modeled change<br>not an official forecast</p>
+                </div>
+              </div>
             </td>
           </tr>
           <tr>
-            <td style="padding:8px 32px 4px 32px;font-family:Georgia,serif;font-size:16px;color:#243036;">
+            <td style="padding:16px 32px 4px 32px;font-family:Georgia,serif;font-size:16px;color:#243036;">
               <h2 style="margin:0 0 8px 0;font-size:20px;color:#1a3a4a;">Inflow, outflow &amp; lake level</h2>
-              <p style="margin:0 0 12px 0;font-size:15px;">Solid = last 7 days observed. Dashed = next 7 days modeled. Rain-sensitive days in forecast: {rain_note}.</p>
+              <p style="margin:0 0 12px 0;font-size:15px;">Solid = last 7 days observed. Dashed = next 7 days modeled. Rain-sensitive days in forecast: {rain_note}. <span style="color:#5a7a86;">Click the chart for full screen.</span></p>
             </td>
           </tr>
           <tr>
             <td style="padding:0 24px 8px 24px;" align="center">
-              <img src="chart.png" width="592" alt="Inflow, outflow, and lake level chart with projection" style="max-width:100%;height:auto;border:1px solid #d5dde3;border-radius:6px;display:block;">
+              <img src="chart.png" width="592" class="chart-thumb" alt="Inflow, outflow, and lake level chart with projection — click to enlarge" onclick="openChart()" title="Click to view full screen">
             </td>
           </tr>
           <tr>
@@ -383,11 +420,6 @@ def render_html(series: dict) -> None:
                 <li>Expect little or no freeboard on many docks while levels stay elevated.</li>
                 <li>Secure floatables; check lines, chains, and shore power.</li>
                 <li>Wait for a sustained multi-day drop before major dock reconfiguration.</li>
-              </ul>
-              <h2 style="margin:18px 0 10px 0;font-size:20px;color:#1a3a4a;">Boat &amp; swimming</h2>
-              <ul style="margin:0;padding-left:20px;">
-                <li>Go slow near shore; watch for debris; <strong>no wake</strong> at docks.</li>
-                <li>Supervise kids/pets; avoid current near inlets, bridges, and dam approaches.</li>
               </ul>
             </td>
           </tr>
@@ -409,6 +441,21 @@ def render_html(series: dict) -> None:
       </td>
     </tr>
   </table>
+  <script>
+    function openChart() {{
+      var lb = document.getElementById('chart-lightbox');
+      lb.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }}
+    function closeChart() {{
+      var lb = document.getElementById('chart-lightbox');
+      lb.classList.remove('open');
+      document.body.style.overflow = '';
+    }}
+    document.addEventListener('keydown', function(e) {{
+      if (e.key === 'Escape') closeChart();
+    }});
+  </script>
 </body>
 </html>
 """

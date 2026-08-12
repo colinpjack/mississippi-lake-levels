@@ -7,10 +7,11 @@ Fetches WSC + KiWIS gauges, rebuilds projection + chart, writes index.html.
 
 from __future__ import annotations
 
-import base64
 import json
 import math
 import ssl
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections import defaultdict
@@ -23,6 +24,7 @@ ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 CHART_PNG = ROOT / "chart.png"
 INDEX = ROOT / "index.html"
+CACHE = DATA / "chart_series.json"
 
 AREA_M2 = 25e6  # Mississippi Lake ~25 km²
 CM_PER_M3S_DAY = 86400 / AREA_M2 * 100
@@ -38,10 +40,28 @@ except Exception:
     ctx.verify_mode = ssl.CERT_NONE
 
 
-def fetch_json(url: str) -> dict | list:
-    req = urllib.request.Request(url, headers={"User-Agent": "mississippi-lake-levels/1.0"})
-    with urllib.request.urlopen(req, timeout=90, context=ctx) as resp:
-        return json.load(resp)
+def fetch_json(url: str, *, attempts: int = 4, timeout: float = 45) -> dict | list:
+    """GET JSON with retries — WSC / KiWIS are occasionally slow or unreachable from Actions."""
+    last_err: Exception | None = None
+    for i in range(attempts):
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "mississippi-lake-levels/1.0 (+https://github.com/colinpjack/mississippi-lake-levels)",
+                    "Accept": "application/json",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+                return json.load(resp)
+        except (TimeoutError, urllib.error.URLError, urllib.error.HTTPError, OSError, json.JSONDecodeError) as e:
+            last_err = e
+            if i + 1 >= attempts:
+                break
+            wait = min(30, 2**i)
+            print(f"  fetch retry {i + 1}/{attempts} after {type(e).__name__}: {e}; sleep {wait}s")
+            time.sleep(wait)
+    raise urllib.error.URLError(f"Failed after {attempts} attempts: {last_err}")
 
 
 def fetch_wsc_daily(stn: str, start: str, end: str) -> dict[str, float]:
@@ -475,8 +495,15 @@ def render_html(series: dict) -> None:
 def main() -> None:
     DATA.mkdir(exist_ok=True)
     print("Fetching gauges…")
-    series = build_series()
-    (DATA / "chart_series.json").write_text(json.dumps(series, indent=2))
+    try:
+        series = build_series()
+    except Exception as e:
+        print(f"Live gauge refresh failed: {e}")
+        if CACHE.exists():
+            print(f"Keeping previous site files from {CACHE.name} (workflow continues).")
+            return
+        raise
+    CACHE.write_text(json.dumps(series, indent=2))
     print("Rendering chart…")
     render_chart(series)
     print("Writing index.html…")

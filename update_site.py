@@ -17,6 +17,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from statistics import mean
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -93,7 +94,9 @@ def fetch_open_meteo_wed_rain(lat=45.14, lon=-76.15) -> dict[str, float]:
 
 def build_series() -> dict:
     now = datetime.now(timezone.utc)
-    edt = now - timedelta(hours=4)
+    tor = now.astimezone(ZoneInfo("America/Toronto"))
+    today = tor.date()
+    edt = tor
     end = (now + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     start = (now - timedelta(days=10)).strftime("%Y-%m-%dT00:00:00Z")
     frm = (now - timedelta(days=10)).strftime("%Y-%m-%dT00:00:00-0400")
@@ -103,10 +106,17 @@ def build_series() -> dict:
     ap = fetch_wsc_daily("02KF006", start, end)
     lake = fetch_lake_daily(frm, to)
 
-    days = sorted(set(ff) | set(ap) | set(lake))
-    days = [d for d in days if d >= (date.today() - timedelta(days=7)).isoformat()][-7:]
+    # Flow gauges often publish today's partial day before KiWIS has a lake day.
+    # Only chart days that have both lake level and Ferguson inflow.
+    overlap = sorted(set(ff) & set(lake))
+    cutoff = (today - timedelta(days=7)).isoformat()
+    days = [d for d in overlap if d >= cutoff][-7:]
     if len(days) < 3:
-        days = sorted(set(ff) | set(lake))[-7:]
+        days = overlap[-7:]
+    if len(days) < 3:
+        raise RuntimeError(
+            f"Not enough overlapping gauge days (ff={len(ff)}, lake={len(lake)}, overlap={len(overlap)})"
+        )
 
     hist_ff = [ff[d] for d in days]
     hist_ap = [ap.get(d, ff[d]) for d in days]

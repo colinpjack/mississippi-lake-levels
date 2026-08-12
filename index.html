@@ -7,11 +7,11 @@
   <title>Mississippi Lake High Water Update</title>
   <meta name="description" content="People of the Lake — Mississippi Lake Ontario water level, inflow/outflow, and dock guidance. Updated several times daily.">
   <style>
-    .kpi-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .kpi { background:#f4f8f9; border:1px solid #d7e4e8; border-radius:10px; padding:16px 14px; text-align:center; }
-    .kpi-label { margin:0 0 8px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:#5a7a86; }
-    .kpi-value { margin:0; font-family:Arial,Helvetica,sans-serif; font-size:26px; font-weight:700; color:#1a3a4a; line-height:1.1; }
-    .kpi-sub { margin:8px 0 0 0; font-family:Arial,Helvetica,sans-serif; font-size:12px; color:#6a7c84; line-height:1.35; }
+    .kpi-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+    .kpi { background:#f4f8f9; border:1px solid #d7e4e8; border-radius:10px; padding:14px 12px; text-align:center; }
+    .kpi-label { margin:0 0 8px 0; font-family:Arial,Helvetica,sans-serif; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:#5a7a86; }
+    .kpi-value { margin:0; font-family:Arial,Helvetica,sans-serif; font-size:24px; font-weight:700; color:#1a3a4a; line-height:1.1; }
+    .kpi-sub { margin:8px 0 0 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; color:#6a7c84; line-height:1.35; }
     .chart-thumb { cursor:zoom-in; max-width:100%; height:auto; border:1px solid #d5dde3; border-radius:6px; display:block; transition:opacity .15s ease; }
     .chart-thumb:hover { opacity:0.92; }
     .lightbox { display:none; position:fixed; inset:0; z-index:1000; background:rgba(10,20,28,0.92); align-items:center; justify-content:center; padding:24px; box-sizing:border-box; }
@@ -19,7 +19,10 @@
     .lightbox img { max-width:min(1200px,96vw); max-height:92vh; width:auto; height:auto; border-radius:6px; box-shadow:0 12px 40px rgba(0,0,0,0.45); background:#fff; }
     .lightbox-close { position:fixed; top:16px; right:20px; border:0; background:rgba(255,255,255,0.12); color:#fff; font:600 14px/1 Arial,Helvetica,sans-serif; padding:10px 14px; border-radius:8px; cursor:pointer; }
     .lightbox-hint { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); color:rgba(255,255,255,0.7); font:12px/1.4 Arial,Helvetica,sans-serif; }
-    @media (max-width:560px) {
+    @media (max-width:640px) {
+      .kpi-grid { grid-template-columns:1fr 1fr; }
+    }
+    @media (max-width:420px) {
       .kpi-grid { grid-template-columns:1fr; }
       .kpi-value { font-size:22px; }
     }
@@ -58,24 +61,34 @@
               <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#5a7a86;">At a glance</p>
               <div class="kpi-grid">
                 <div class="kpi">
-                  <p class="kpi-label">Lake level</p>
-                  <p class="kpi-value">134.49<span style="font-size:14px;font-weight:600;color:#5a7a86;"> m</span></p>
-                  <p class="kpi-sub">+39 cm vs early July<br>~134.10 m MASL</p>
+                  <p class="kpi-label">Current lake level</p>
+                  <p class="kpi-value">134.49<span style="font-size:13px;font-weight:600;color:#5a7a86;"> m</span></p>
+                  <p class="kpi-sub">+42 cm vs historic avg<br>+39 cm vs early July</p>
+                </div>
+                <div class="kpi">
+                  <p class="kpi-label">Historic average</p>
+                  <p class="kpi-value">134.07<span style="font-size:13px;font-weight:600;color:#5a7a86;"> m</span></p>
+                  <p class="kpi-sub">for this date · 2014–2025<br>current is +42 cm vs avg</p>
+                </div>
+                <div class="kpi">
+                  <p class="kpi-label">7-day outlook</p>
+                  <p class="kpi-value" style="color:#0b6e4f;">134.41<span style="font-size:13px;font-weight:600;color:#5a7a86;"> m</span></p>
+                  <p class="kpi-sub">-8 cm modeled change<br>not an official forecast</p>
+                </div>
+                <div class="kpi">
+                  <p class="kpi-label">Inflow · Ferguson’s Falls</p>
+                  <p class="kpi-value">64.3</p>
+                  <p class="kpi-sub">m³/s<br>into Mississippi Lake</p>
+                </div>
+                <div class="kpi">
+                  <p class="kpi-label">Outflow · Appleton</p>
+                  <p class="kpi-value">76.0</p>
+                  <p class="kpi-sub">m³/s<br>downstream of the lake</p>
                 </div>
                 <div class="kpi">
                   <p class="kpi-label">In − out gap</p>
                   <p class="kpi-value" style="color:#0b6e4f;">-11.7</p>
-                  <p class="kpi-sub">m³/s · Draining<br>Inflow 64.3 · Outflow 76.0</p>
-                </div>
-                <div class="kpi">
-                  <p class="kpi-label">Inflow</p>
-                  <p class="kpi-value">64.3</p>
-                  <p class="kpi-sub">m³/s<br>Ferguson’s Falls</p>
-                </div>
-                <div class="kpi">
-                  <p class="kpi-label">7-day outlook</p>
-                  <p class="kpi-value" style="color:#0b6e4f;">134.41<span style="font-size:14px;font-weight:600;color:#5a7a86;"> m</span></p>
-                  <p class="kpi-sub">-8 cm modeled change<br>not an official forecast</p>
+                  <p class="kpi-sub">m³/s · Draining<br>positive = lake filling</p>
                 </div>
               </div>
             </td>

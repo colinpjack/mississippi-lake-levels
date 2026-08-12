@@ -25,10 +25,12 @@ DATA = ROOT / "data"
 CHART_PNG = ROOT / "chart.png"
 INDEX = ROOT / "index.html"
 CACHE = DATA / "chart_series.json"
+HISTORIC_DOY = DATA / "historic_doy_means.json"
 
 AREA_M2 = 25e6  # Mississippi Lake ~25 km²
 CM_PER_M3S_DAY = 86400 / AREA_M2 * 100
 LAKE_TS = 1404042
+EARLY_JULY_LEVEL = 134.10
 
 ctx = ssl.create_default_context()
 try:
@@ -110,6 +112,22 @@ def fetch_open_meteo_wed_rain(lat=45.14, lon=-76.15) -> dict[str, float]:
         return {day: float(p) for day, p in zip(d["time"], d["precipitation_sum"])}
     except Exception:
         return {}
+
+
+def historic_mean_for_date(d: date | str) -> float | None:
+    """Look up multi-year mean lake level for this calendar day (MASL)."""
+    if isinstance(d, str):
+        md = d[5:10] if len(d) >= 10 else d
+    else:
+        md = f"{d.month:02d}-{d.day:02d}"
+    if not HISTORIC_DOY.exists():
+        return None
+    try:
+        means = json.loads(HISTORIC_DOY.read_text()).get("means", {})
+        val = means.get(md)
+        return float(val) if val is not None else None
+    except Exception:
+        return None
 
 
 def build_series() -> dict:
@@ -214,6 +232,8 @@ def build_series() -> dict:
 
     # Latest instantaneous-ish values from last daily means
     gap_now = hist_ff[-1] - hist_ap[-1]
+    hist_avg = historic_mean_for_date(days[-1])
+    vs_hist = (hist_lake[-1] - hist_avg) * 100 if hist_avg is not None else None
     return {
         "generated_edt": edt.strftime("%Y-%m-%d %H:%M"),
         "hist_days": days,
@@ -230,7 +250,9 @@ def build_series() -> dict:
         "latest_ff": hist_ff[-1],
         "latest_ap": hist_ap[-1],
         "gap_now": gap_now,
-        "vs_early_july_cm": (hist_lake[-1] - 134.10) * 100,
+        "historic_avg": hist_avg,
+        "vs_historic_cm": vs_hist,
+        "vs_early_july_cm": (hist_lake[-1] - EARLY_JULY_LEVEL) * 100,
         "proj_end_lake": proj_lake[-1],
         "proj_change_cm": (proj_lake[-1] - hist_lake[-1]) * 100,
         "rain_bump": rain_bump,
@@ -307,7 +329,10 @@ def render_chart(series: dict) -> None:
         ms=4,
         label="Lake level (projected)",
     )
-    ax2.axhline(134.10, color="#6b8f71", ls=":", lw=1.3, label="Early July ~134.10 m")
+    ax2.axhline(EARLY_JULY_LEVEL, color="#6b8f71", ls=":", lw=1.3, label=f"Early July ~{EARLY_JULY_LEVEL:.2f} m")
+    hist_avg = series.get("historic_avg")
+    if hist_avg is not None:
+        ax2.axhline(hist_avg, color="#8a6d3b", ls=":", lw=1.4, label=f"Historic avg ~{hist_avg:.2f} m")
     for d in series.get("rain_bump", {}):
         dt = datetime.fromisoformat(d)
         ax2.axvspan(dt, dt + timedelta(days=1), color="#5b8def", alpha=0.12)
@@ -333,6 +358,8 @@ def render_html(series: dict) -> None:
     ap = series["latest_ap"]
     gap = series["gap_now"]
     vs = series["vs_early_july_cm"]
+    hist_avg = series.get("historic_avg")
+    vs_hist = series.get("vs_historic_cm")
     proj = series["proj_end_lake"]
     dcm = series["proj_change_cm"]
     when = series["generated_edt"]
@@ -344,6 +371,14 @@ def render_html(series: dict) -> None:
     gap_color = "#0b6e4f" if gap < -0.5 else ("#c45c26" if gap > 0.5 else "#5a7a86")
     gap_label = "Draining" if gap < -0.5 else ("Filling" if gap > 0.5 else "Balanced")
     outlook_color = "#0b6e4f" if dcm < -0.5 else ("#c45c26" if dcm > 0.5 else "#5a7a86")
+    if hist_avg is not None and vs_hist is not None:
+        hist_avg_html = f"{hist_avg:.2f}"
+        hist_sub = f"for this date · 2014–2025<br>current is {vs_hist:+.0f} cm vs avg"
+        lake_sub = f"{vs_hist:+.0f} cm vs historic avg<br>{vs:+.0f} cm vs early July"
+    else:
+        hist_avg_html = "—"
+        hist_sub = "for this date · unavailable<br>see early July baseline"
+        lake_sub = f"{vs:+.0f} cm vs early July<br>~{EARLY_JULY_LEVEL:.2f} m MASL"
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -354,11 +389,11 @@ def render_html(series: dict) -> None:
   <title>Mississippi Lake High Water Update</title>
   <meta name="description" content="People of the Lake — Mississippi Lake Ontario water level, inflow/outflow, and dock guidance. Updated several times daily.">
   <style>
-    .kpi-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }}
-    .kpi {{ background:#f4f8f9; border:1px solid #d7e4e8; border-radius:10px; padding:16px 14px; text-align:center; }}
-    .kpi-label {{ margin:0 0 8px 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:#5a7a86; }}
-    .kpi-value {{ margin:0; font-family:Arial,Helvetica,sans-serif; font-size:26px; font-weight:700; color:#1a3a4a; line-height:1.1; }}
-    .kpi-sub {{ margin:8px 0 0 0; font-family:Arial,Helvetica,sans-serif; font-size:12px; color:#6a7c84; line-height:1.35; }}
+    .kpi-grid {{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }}
+    .kpi {{ background:#f4f8f9; border:1px solid #d7e4e8; border-radius:10px; padding:14px 12px; text-align:center; }}
+    .kpi-label {{ margin:0 0 8px 0; font-family:Arial,Helvetica,sans-serif; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:#5a7a86; }}
+    .kpi-value {{ margin:0; font-family:Arial,Helvetica,sans-serif; font-size:24px; font-weight:700; color:#1a3a4a; line-height:1.1; }}
+    .kpi-sub {{ margin:8px 0 0 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; color:#6a7c84; line-height:1.35; }}
     .chart-thumb {{ cursor:zoom-in; max-width:100%; height:auto; border:1px solid #d5dde3; border-radius:6px; display:block; transition:opacity .15s ease; }}
     .chart-thumb:hover {{ opacity:0.92; }}
     .lightbox {{ display:none; position:fixed; inset:0; z-index:1000; background:rgba(10,20,28,0.92); align-items:center; justify-content:center; padding:24px; box-sizing:border-box; }}
@@ -366,7 +401,10 @@ def render_html(series: dict) -> None:
     .lightbox img {{ max-width:min(1200px,96vw); max-height:92vh; width:auto; height:auto; border-radius:6px; box-shadow:0 12px 40px rgba(0,0,0,0.45); background:#fff; }}
     .lightbox-close {{ position:fixed; top:16px; right:20px; border:0; background:rgba(255,255,255,0.12); color:#fff; font:600 14px/1 Arial,Helvetica,sans-serif; padding:10px 14px; border-radius:8px; cursor:pointer; }}
     .lightbox-hint {{ position:fixed; bottom:16px; left:50%; transform:translateX(-50%); color:rgba(255,255,255,0.7); font:12px/1.4 Arial,Helvetica,sans-serif; }}
-    @media (max-width:560px) {{
+    @media (max-width:640px) {{
+      .kpi-grid {{ grid-template-columns:1fr 1fr; }}
+    }}
+    @media (max-width:420px) {{
       .kpi-grid {{ grid-template-columns:1fr; }}
       .kpi-value {{ font-size:22px; }}
     }}
@@ -405,24 +443,34 @@ def render_html(series: dict) -> None:
               <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#5a7a86;">At a glance</p>
               <div class="kpi-grid">
                 <div class="kpi">
-                  <p class="kpi-label">Lake level</p>
-                  <p class="kpi-value">{lake:.2f}<span style="font-size:14px;font-weight:600;color:#5a7a86;"> m</span></p>
-                  <p class="kpi-sub">{vs:+.0f} cm vs early July<br>~134.10 m MASL</p>
+                  <p class="kpi-label">Current lake level</p>
+                  <p class="kpi-value">{lake:.2f}<span style="font-size:13px;font-weight:600;color:#5a7a86;"> m</span></p>
+                  <p class="kpi-sub">{lake_sub}</p>
+                </div>
+                <div class="kpi">
+                  <p class="kpi-label">Historic average</p>
+                  <p class="kpi-value">{hist_avg_html}<span style="font-size:13px;font-weight:600;color:#5a7a86;"> m</span></p>
+                  <p class="kpi-sub">{hist_sub}</p>
+                </div>
+                <div class="kpi">
+                  <p class="kpi-label">7-day outlook</p>
+                  <p class="kpi-value" style="color:{outlook_color};">{proj:.2f}<span style="font-size:13px;font-weight:600;color:#5a7a86;"> m</span></p>
+                  <p class="kpi-sub">{dcm:+.0f} cm modeled change<br>not an official forecast</p>
+                </div>
+                <div class="kpi">
+                  <p class="kpi-label">Inflow · Ferguson’s Falls</p>
+                  <p class="kpi-value">{ff:.1f}</p>
+                  <p class="kpi-sub">m³/s<br>into Mississippi Lake</p>
+                </div>
+                <div class="kpi">
+                  <p class="kpi-label">Outflow · Appleton</p>
+                  <p class="kpi-value">{ap:.1f}</p>
+                  <p class="kpi-sub">m³/s<br>downstream of the lake</p>
                 </div>
                 <div class="kpi">
                   <p class="kpi-label">In − out gap</p>
                   <p class="kpi-value" style="color:{gap_color};">{gap:+.1f}</p>
-                  <p class="kpi-sub">m³/s · {gap_label}<br>Inflow {ff:.1f} · Outflow {ap:.1f}</p>
-                </div>
-                <div class="kpi">
-                  <p class="kpi-label">Inflow</p>
-                  <p class="kpi-value">{ff:.1f}</p>
-                  <p class="kpi-sub">m³/s<br>Ferguson’s Falls</p>
-                </div>
-                <div class="kpi">
-                  <p class="kpi-label">7-day outlook</p>
-                  <p class="kpi-value" style="color:{outlook_color};">{proj:.2f}<span style="font-size:14px;font-weight:600;color:#5a7a86;"> m</span></p>
-                  <p class="kpi-sub">{dcm:+.0f} cm modeled change<br>not an official forecast</p>
+                  <p class="kpi-sub">m³/s · {gap_label}<br>positive = lake filling</p>
                 </div>
               </div>
             </td>

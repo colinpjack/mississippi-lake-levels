@@ -411,6 +411,12 @@ def render_html(series: dict) -> None:
     dcm = series["proj_change_cm"]
     when = series["generated_edt"]
     deltas = series.get("deltas") or {}
+    # Date label for the glance header — prefer latest observed gauge day
+    try:
+        glance_day = date.fromisoformat(series["hist_days"][-1])
+    except Exception:
+        glance_day = datetime.strptime(when[:10], "%Y-%m-%d").date()
+    glance_label = f"{glance_day.strftime('%B')} {glance_day.day}"
     status = "Near crest" if abs(gap) < 5 else ("Filling" if gap > 5 else "Falling / draining")
     rain_note = (
         ", ".join(f"{d} (~bump)" for d in sorted(series.get("rain_bump", {})))
@@ -432,10 +438,6 @@ def render_html(series: dict) -> None:
     lake_delta = deltas.get("lake_m")
     lake_tick = ticker_markup(
         None if lake_delta is None else lake_delta * 100, flat=0.3, digits=1, unit=" cm"
-    )
-    hist_delta = deltas.get("historic_avg_m")
-    hist_tick = ticker_markup(
-        None if hist_delta is None else hist_delta * 100, flat=0.05, digits=1, unit=" cm"
     )
     outlook_delta = deltas.get("outlook_m")
     outlook_tick = ticker_markup(
@@ -509,7 +511,7 @@ def render_html(series: dict) -> None:
           </tr>
           <tr>
             <td style="padding:12px 32px 8px 32px;">
-              <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#5a7a86;">At a glance <span style="letter-spacing:0;text-transform:none;color:#8a9aa2;">· vs prior day</span></p>
+              <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#5a7a86;">{glance_label} - At a glance <span style="letter-spacing:0;text-transform:none;color:#8a9aa2;">· vs prior day</span></p>
               <div class="kpi-grid">
                 <div class="kpi">
                   <p class="kpi-label">Current lake level</p>
@@ -520,7 +522,6 @@ def render_html(series: dict) -> None:
                 <div class="kpi">
                   <p class="kpi-label">Historic average</p>
                   <p class="kpi-value">{hist_avg_html}<span style="font-size:13px;font-weight:600;color:#5a7a86;"> m</span></p>
-                  <div>{hist_tick}</div>
                   <p class="kpi-sub">{hist_sub}</p>
                 </div>
                 <div class="kpi">

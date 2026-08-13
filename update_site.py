@@ -130,6 +130,39 @@ def historic_mean_for_date(d: date | str) -> float | None:
         return None
 
 
+def load_cached_series() -> dict | None:
+    if not CACHE.exists():
+        return None
+    try:
+        return json.loads(CACHE.read_text())
+    except Exception:
+        return None
+
+
+def day_delta(values: list[float]) -> float | None:
+    if len(values) < 2:
+        return None
+    return values[-1] - values[-2]
+
+
+def ticker_markup(delta: float | None, *, flat: float, digits: int = 1, unit: str = "", invert: bool = False) -> str:
+    """Stock-ticker style ▲ / ▼ / – chip for change vs previous reading."""
+    if delta is None or (isinstance(delta, float) and math.isnan(delta)):
+        return '<span class="ticker flat" title="No prior reading">–</span>'
+    if abs(delta) < flat:
+        return '<span class="ticker flat" title="Little change vs prior day">–</span>'
+    up = delta > 0
+    if invert:
+        up = not up
+    arrow = "▲" if delta > 0 else "▼"
+    cls = "up" if up else "down"
+    # Always show signed magnitude in the natural up/down sense of the value
+    return (
+        f'<span class="ticker {cls}" title="Change vs prior day">'
+        f"{arrow} {delta:+.{digits}f}{unit}</span>"
+    )
+
+
 def build_series() -> dict:
     now = datetime.now(timezone.utc)
     tor = now.astimezone(ZoneInfo("America/Toronto"))
@@ -234,6 +267,19 @@ def build_series() -> dict:
     gap_now = hist_ff[-1] - hist_ap[-1]
     hist_avg = historic_mean_for_date(days[-1])
     vs_hist = (hist_lake[-1] - hist_avg) * 100 if hist_avg is not None else None
+    prev = load_cached_series()
+    prev_hist_avg = historic_mean_for_date(days[-2]) if len(days) >= 2 else None
+    outlook_delta = None
+    if prev and prev.get("proj_end_lake") is not None:
+        outlook_delta = proj_lake[-1] - float(prev["proj_end_lake"])
+    deltas = {
+        "lake_m": day_delta(hist_lake),
+        "ff": day_delta(hist_ff),
+        "ap": day_delta(hist_ap),
+        "gap": day_delta([a - b for a, b in zip(hist_ff, hist_ap)]),
+        "historic_avg_m": (hist_avg - prev_hist_avg) if hist_avg is not None and prev_hist_avg is not None else None,
+        "outlook_m": outlook_delta,
+    }
     return {
         "generated_edt": edt.strftime("%Y-%m-%d %H:%M"),
         "hist_days": days,
@@ -255,6 +301,7 @@ def build_series() -> dict:
         "vs_early_july_cm": (hist_lake[-1] - EARLY_JULY_LEVEL) * 100,
         "proj_end_lake": proj_lake[-1],
         "proj_change_cm": (proj_lake[-1] - hist_lake[-1]) * 100,
+        "deltas": deltas,
         "rain_bump": rain_bump,
         "params": {
             "k_calibrated": k,
@@ -363,6 +410,7 @@ def render_html(series: dict) -> None:
     proj = series["proj_end_lake"]
     dcm = series["proj_change_cm"]
     when = series["generated_edt"]
+    deltas = series.get("deltas") or {}
     status = "Near crest" if abs(gap) < 5 else ("Filling" if gap > 5 else "Falling / draining")
     rain_note = (
         ", ".join(f"{d} (~bump)" for d in sorted(series.get("rain_bump", {})))
@@ -380,6 +428,23 @@ def render_html(series: dict) -> None:
         hist_sub = "for this date · unavailable<br>see early July baseline"
         lake_sub = f"{vs:+.0f} cm vs early July<br>~{EARLY_JULY_LEVEL:.2f} m MASL"
 
+    # Ticker chips: lake/outlook in cm; flows in m³/s
+    lake_delta = deltas.get("lake_m")
+    lake_tick = ticker_markup(
+        None if lake_delta is None else lake_delta * 100, flat=0.3, digits=1, unit=" cm"
+    )
+    hist_delta = deltas.get("historic_avg_m")
+    hist_tick = ticker_markup(
+        None if hist_delta is None else hist_delta * 100, flat=0.05, digits=1, unit=" cm"
+    )
+    outlook_delta = deltas.get("outlook_m")
+    outlook_tick = ticker_markup(
+        None if outlook_delta is None else outlook_delta * 100, flat=0.3, digits=1, unit=" cm"
+    )
+    ff_tick = ticker_markup(deltas.get("ff"), flat=0.4, digits=1)
+    ap_tick = ticker_markup(deltas.get("ap"), flat=0.4, digits=1)
+    gap_tick = ticker_markup(deltas.get("gap"), flat=0.4, digits=1)
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -394,6 +459,10 @@ def render_html(series: dict) -> None:
     .kpi-label {{ margin:0 0 8px 0; font-family:Arial,Helvetica,sans-serif; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:#5a7a86; }}
     .kpi-value {{ margin:0; font-family:Arial,Helvetica,sans-serif; font-size:24px; font-weight:700; color:#1a3a4a; line-height:1.1; }}
     .kpi-sub {{ margin:8px 0 0 0; font-family:Arial,Helvetica,sans-serif; font-size:11px; color:#6a7c84; line-height:1.35; }}
+    .ticker {{ display:inline-block; margin-top:6px; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:700; letter-spacing:0.02em; }}
+    .ticker.up {{ color:#0b6e4f; }}
+    .ticker.down {{ color:#c45c26; }}
+    .ticker.flat {{ color:#5a7a86; font-size:14px; }}
     .chart-thumb {{ cursor:zoom-in; max-width:100%; height:auto; border:1px solid #d5dde3; border-radius:6px; display:block; transition:opacity .15s ease; }}
     .chart-thumb:hover {{ opacity:0.92; }}
     .lightbox {{ display:none; position:fixed; inset:0; z-index:1000; background:rgba(10,20,28,0.92); align-items:center; justify-content:center; padding:24px; box-sizing:border-box; }}
@@ -440,36 +509,42 @@ def render_html(series: dict) -> None:
           </tr>
           <tr>
             <td style="padding:12px 32px 8px 32px;">
-              <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#5a7a86;">At a glance</p>
+              <p style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#5a7a86;">At a glance <span style="letter-spacing:0;text-transform:none;color:#8a9aa2;">· vs prior day</span></p>
               <div class="kpi-grid">
                 <div class="kpi">
                   <p class="kpi-label">Current lake level</p>
                   <p class="kpi-value">{lake:.2f}<span style="font-size:13px;font-weight:600;color:#5a7a86;"> m</span></p>
+                  <div>{lake_tick}</div>
                   <p class="kpi-sub">{lake_sub}</p>
                 </div>
                 <div class="kpi">
                   <p class="kpi-label">Historic average</p>
                   <p class="kpi-value">{hist_avg_html}<span style="font-size:13px;font-weight:600;color:#5a7a86;"> m</span></p>
+                  <div>{hist_tick}</div>
                   <p class="kpi-sub">{hist_sub}</p>
                 </div>
                 <div class="kpi">
                   <p class="kpi-label">7-day outlook</p>
                   <p class="kpi-value" style="color:{outlook_color};">{proj:.2f}<span style="font-size:13px;font-weight:600;color:#5a7a86;"> m</span></p>
+                  <div>{outlook_tick}</div>
                   <p class="kpi-sub">{dcm:+.0f} cm modeled change<br>not an official forecast</p>
                 </div>
                 <div class="kpi">
                   <p class="kpi-label">Inflow · Ferguson’s Falls</p>
                   <p class="kpi-value">{ff:.1f}</p>
+                  <div>{ff_tick}</div>
                   <p class="kpi-sub">m³/s<br>into Mississippi Lake</p>
                 </div>
                 <div class="kpi">
                   <p class="kpi-label">Outflow · Appleton</p>
                   <p class="kpi-value">{ap:.1f}</p>
+                  <div>{ap_tick}</div>
                   <p class="kpi-sub">m³/s<br>downstream of the lake</p>
                 </div>
                 <div class="kpi">
                   <p class="kpi-label">In − out gap</p>
                   <p class="kpi-value" style="color:{gap_color};">{gap:+.1f}</p>
+                  <div>{gap_tick}</div>
                   <p class="kpi-sub">m³/s · {gap_label}<br>positive = lake filling</p>
                 </div>
               </div>

@@ -2,11 +2,8 @@ name: Update lake briefing
 
 on:
   schedule:
-    # GitHub cron is UTC and often 5–60+ minutes late on free plans.
-    # Target America/Toronto 8:00 / 13:00 / 18:00 during EDT (UTC-4).
-    - cron: "0 12 * * *" # ~8:00 AM EDT
-    - cron: "0 17 * * *" # ~1:00 PM EDT
-    - cron: "0 22 * * *" # ~6:00 PM EDT
+    # GitHub cron is UTC and often delayed on free plans; hourly keeps the page fresher.
+    - cron: "0 * * * *" # every hour, on the hour
   workflow_dispatch: # manual "Run workflow" button
 
 permissions:
@@ -34,7 +31,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Refresh gauges, chart, and index.html
+      - name: Refresh gauges, weather, chart, and index.html
+        env:
+          # Free AmbientWeather.net keys — Settings → Secrets and variables → Actions
+          AMBIENT_API_KEY: ${{ secrets.AMBIENT_API_KEY }}
+          AMBIENT_APPLICATION_KEY: ${{ secrets.AMBIENT_APPLICATION_KEY }}
+          # Optional: pin a station MAC if the account has more than one device
+          AMBIENT_MAC: ${{ secrets.AMBIENT_MAC }}
         run: python update_site.py
 
       - name: Commit updated site (if changed)
@@ -42,6 +45,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html chart.png data/chart_series.json
+          [ -f data/weather.json ] && git add data/weather.json
+          [ -f weather_chart.png ] && git add weather_chart.png
           if git diff --staged --quiet; then
             echo "No content changes"
           else

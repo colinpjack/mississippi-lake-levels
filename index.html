@@ -35,7 +35,7 @@
 <body style="margin:0;padding:0;background:#eef2f4;font-family:Georgia,'Times New Roman',serif;">
   <div id="chart-lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Full screen chart" onclick="if(event.target===this)closeChart()">
     <button type="button" class="lightbox-close" onclick="closeChart()" aria-label="Close">Close ✕</button>
-    <img src="chart.png" alt="Full screen inflow, outflow, and lake level chart">
+    <img id="lightbox-img" src="chart.png" alt="Full screen chart">
     <div class="lightbox-hint">Click outside or press Esc to close</div>
   </div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef2f4;padding:24px 12px;">
@@ -46,7 +46,7 @@
             <td style="background:#1a3a4a;padding:28px 32px 24px 32px;">
               <p style="margin:0 0 6px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#8eb8c8;">Mississippi Lake · Ontario</p>
               <h1 style="margin:0;font-family:Georgia,serif;font-size:28px;line-height:1.25;font-weight:normal;color:#ffffff;">High Water Update for Cottagers</h1>
-              <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#b7d0da;">Updated 2026-08-13 08:14 EDT · auto-refreshes ~3× daily</p>
+              <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#b7d0da;">Updated 2026-08-13 08:14 EDT · auto-refreshes hourly</p>
             </td>
           </tr>
           <tr>
@@ -118,6 +118,7 @@
               <strong>Model:</strong> Δh ≈ k · (Q<sub>in</sub> − Q<sub>out</sub>) / A with A ≈ 25 km²; k calibrated to recent observed rise; Qin recession from peak + forecast rain bumps.
             </td>
           </tr>
+
           <tr>
             <td style="padding:8px 32px;font-family:Georgia,serif;font-size:16px;line-height:1.55;color:#243036;">
               <h2 style="margin:0 0 10px 0;font-size:20px;color:#1a3a4a;">Dock guidance</h2>
@@ -139,7 +140,7 @@
           </tr>
           <tr>
             <td style="background:#f0f4f6;padding:16px 32px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#6a7c84;border-top:1px solid #d5dde3;">
-              People of the Lake · Source on GitHub · Updated automatically ~8:00, 13:00, 18:00 America/Toronto
+              People of the Lake · Source on GitHub · Updated automatically about every hour
             </td>
           </tr>
         </table>
@@ -147,10 +148,19 @@
     </tr>
   </table>
   <script>
-    function openChart() {
+    function openLightbox(src, alt) {
       var lb = document.getElementById('chart-lightbox');
+      var img = document.getElementById('lightbox-img');
+      img.src = src;
+      img.alt = alt || 'Full screen chart';
       lb.classList.add('open');
       document.body.style.overflow = 'hidden';
+    }
+    function openChart() {
+      openLightbox('chart.png', 'Full screen inflow, outflow, and lake level chart');
+    }
+    function openWeatherChart() {
+      openLightbox('weather_chart.png', 'Full screen cottage weather chart');
     }
     function closeChart() {
       var lb = document.getElementById('chart-lightbox');

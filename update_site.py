@@ -2,8 +2,7 @@
 """
 Refresh Mississippi Lake cottager briefing for GitHub Pages.
 
-Fetches WSC + KiWIS gauges and optional Ambient Weather station data,
-rebuilds projection + charts, writes index.html.
+Fetches WSC + KiWIS gauges, rebuilds projection + chart, writes index.html.
 """
 
 from __future__ import annotations
@@ -21,12 +20,9 @@ from pathlib import Path
 from statistics import mean
 from zoneinfo import ZoneInfo
 
-from ambient_weather import refresh_weather
-
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 CHART_PNG = ROOT / "chart.png"
-WEATHER_CHART = ROOT / "weather_chart.png"
 INDEX = ROOT / "index.html"
 CACHE = DATA / "chart_series.json"
 HISTORIC_DOY = DATA / "historic_doy_means.json"
@@ -403,81 +399,7 @@ def render_chart(series: dict) -> None:
     plt.close()
 
 
-def _fmt(v, digits: int = 1, fallback: str = "—") -> str:
-    if v is None:
-        return fallback
-    try:
-        return f"{float(v):.{digits}f}"
-    except (TypeError, ValueError):
-        return fallback
-
-
-def weather_section_html(weather: dict | None) -> str:
-    """Cottage weather block from Ambient WS-4000 (or prior cache). Empty if unavailable."""
-    if not weather or not weather.get("ok"):
-        return ""
-    cur = weather.get("current") or {}
-    name = weather.get("station_name") or "Cottage weather station"
-    when = weather.get("generated_edt") or cur.get("time_edt") or "—"
-    wind_dir = cur.get("wind_dir") or ""
-    wind_sub = f"{wind_dir} · gust {_fmt(cur.get('gust_kmh'))} km/h" if wind_dir else f"gust {_fmt(cur.get('gust_kmh'))} km/h"
-    chart_block = ""
-    if WEATHER_CHART.exists():
-        chart_block = f"""
-          <tr>
-            <td style="padding:0 24px 8px 24px;" align="center">
-              <img src="weather_chart.png" width="592" class="chart-thumb" alt="Cottage weather — temperature, humidity, and wind — click to enlarge" onclick="openWeatherChart()" title="Click to view full screen">
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:4px 32px 8px 32px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;color:#5a7078;">
-              Last ~24 hours from AmbientWeather.net (metric). Station: {name}.
-            </td>
-          </tr>"""
-
-    return f"""
-          <tr>
-            <td style="padding:20px 32px 8px 32px;font-family:Georgia,serif;font-size:16px;color:#243036;border-top:1px solid #e4ecef;">
-              <h2 style="margin:0 0 6px 0;font-size:20px;color:#1a3a4a;">Cottage weather</h2>
-              <p style="margin:0 0 12px 0;font-size:14px;font-family:Arial,Helvetica,sans-serif;color:#5a7a86;">{name} · reading {when} EDT · AmbientWeather.net</p>
-              <div class="kpi-grid">
-                <div class="kpi">
-                  <p class="kpi-label">Outdoor temp</p>
-                  <p class="kpi-value">{_fmt(cur.get("temp_c"))}<span style="font-size:13px;font-weight:600;color:#5a7a86;"> °C</span></p>
-                  <p class="kpi-sub">feels like {_fmt(cur.get("feels_like_c"))} °C<br>dew point {_fmt(cur.get("dew_point_c"))} °C</p>
-                </div>
-                <div class="kpi">
-                  <p class="kpi-label">Humidity</p>
-                  <p class="kpi-value">{_fmt(cur.get("humidity_pct"), 0)}<span style="font-size:13px;font-weight:600;color:#5a7a86;"> %</span></p>
-                  <p class="kpi-sub">indoor {_fmt(cur.get("temp_in_c"))} °C<br>{_fmt(cur.get("humidity_in_pct"), 0)}% RH</p>
-                </div>
-                <div class="kpi">
-                  <p class="kpi-label">Wind</p>
-                  <p class="kpi-value">{_fmt(cur.get("wind_kmh"))}<span style="font-size:13px;font-weight:600;color:#5a7a86;"> km/h</span></p>
-                  <p class="kpi-sub">{wind_sub}</p>
-                </div>
-                <div class="kpi">
-                  <p class="kpi-label">Pressure</p>
-                  <p class="kpi-value">{_fmt(cur.get("pressure_hpa"), 0)}<span style="font-size:13px;font-weight:600;color:#5a7a86;"> hPa</span></p>
-                  <p class="kpi-sub">relative<br>station barometer</p>
-                </div>
-                <div class="kpi">
-                  <p class="kpi-label">Rain today</p>
-                  <p class="kpi-value">{_fmt(cur.get("rain_day_mm"))}<span style="font-size:13px;font-weight:600;color:#5a7a86;"> mm</span></p>
-                  <p class="kpi-sub">hour {_fmt(cur.get("rain_hour_mm"))} mm<br>event {_fmt(cur.get("rain_event_mm"))} mm</p>
-                </div>
-                <div class="kpi">
-                  <p class="kpi-label">Sun / UV</p>
-                  <p class="kpi-value">{_fmt(cur.get("uv"), 0)}</p>
-                  <p class="kpi-sub">UV index<br>solar {_fmt(cur.get("solar_wm2"), 0)} W/m²</p>
-                </div>
-              </div>
-            </td>
-          </tr>{chart_block}
-"""
-
-
-def render_html(series: dict, weather: dict | None = None) -> None:
+def render_html(series: dict) -> None:
     lake = series["latest_lake"]
     ff = series["latest_ff"]
     ap = series["latest_ap"]
@@ -489,7 +411,6 @@ def render_html(series: dict, weather: dict | None = None) -> None:
     dcm = series["proj_change_cm"]
     when = series["generated_edt"]
     deltas = series.get("deltas") or {}
-    weather_html = weather_section_html(weather)
     # Date label for the glance header — prefer latest observed gauge day
     try:
         glance_day = date.fromisoformat(series["hist_days"][-1])
@@ -563,7 +484,7 @@ def render_html(series: dict, weather: dict | None = None) -> None:
 <body style="margin:0;padding:0;background:#eef2f4;font-family:Georgia,'Times New Roman',serif;">
   <div id="chart-lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Full screen chart" onclick="if(event.target===this)closeChart()">
     <button type="button" class="lightbox-close" onclick="closeChart()" aria-label="Close">Close ✕</button>
-    <img id="lightbox-img" src="chart.png" alt="Full screen chart">
+    <img src="chart.png" alt="Full screen inflow, outflow, and lake level chart">
     <div class="lightbox-hint">Click outside or press Esc to close</div>
   </div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef2f4;padding:24px 12px;">
@@ -574,7 +495,7 @@ def render_html(series: dict, weather: dict | None = None) -> None:
             <td style="background:#1a3a4a;padding:28px 32px 24px 32px;">
               <p style="margin:0 0 6px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#8eb8c8;">Mississippi Lake · Ontario</p>
               <h1 style="margin:0;font-family:Georgia,serif;font-size:28px;line-height:1.25;font-weight:normal;color:#ffffff;">High Water Update for Cottagers</h1>
-              <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#b7d0da;">Updated {when} EDT · auto-refreshes hourly</p>
+              <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#b7d0da;">Updated {when} EDT · auto-refreshes ~3× daily</p>
             </td>
           </tr>
           <tr>
@@ -646,7 +567,6 @@ def render_html(series: dict, weather: dict | None = None) -> None:
               <strong>Model:</strong> Δh ≈ k · (Q<sub>in</sub> − Q<sub>out</sub>) / A with A ≈ 25 km²; k calibrated to recent observed rise; Qin recession from peak + forecast rain bumps.
             </td>
           </tr>
-{weather_html}
           <tr>
             <td style="padding:8px 32px;font-family:Georgia,serif;font-size:16px;line-height:1.55;color:#243036;">
               <h2 style="margin:0 0 10px 0;font-size:20px;color:#1a3a4a;">Dock guidance</h2>
@@ -668,7 +588,7 @@ def render_html(series: dict, weather: dict | None = None) -> None:
           </tr>
           <tr>
             <td style="background:#f0f4f6;padding:16px 32px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#6a7c84;border-top:1px solid #d5dde3;">
-              People of the Lake · Source on GitHub · Updated automatically about every hour
+              People of the Lake · Source on GitHub · Updated automatically ~8:00, 13:00, 18:00 America/Toronto
             </td>
           </tr>
         </table>
@@ -676,19 +596,10 @@ def render_html(series: dict, weather: dict | None = None) -> None:
     </tr>
   </table>
   <script>
-    function openLightbox(src, alt) {{
+    function openChart() {{
       var lb = document.getElementById('chart-lightbox');
-      var img = document.getElementById('lightbox-img');
-      img.src = src;
-      img.alt = alt || 'Full screen chart';
       lb.classList.add('open');
       document.body.style.overflow = 'hidden';
-    }}
-    function openChart() {{
-      openLightbox('chart.png', 'Full screen inflow, outflow, and lake level chart');
-    }}
-    function openWeatherChart() {{
-      openLightbox('weather_chart.png', 'Full screen cottage weather chart');
     }}
     function closeChart() {{
       var lb = document.getElementById('chart-lightbox');
@@ -707,7 +618,6 @@ def render_html(series: dict, weather: dict | None = None) -> None:
 
 def main() -> None:
     DATA.mkdir(exist_ok=True)
-    weather = refresh_weather()
     print("Fetching gauges…")
     try:
         series = build_series()
@@ -715,20 +625,13 @@ def main() -> None:
         print(f"Live gauge refresh failed: {e}")
         if CACHE.exists():
             print(f"Keeping previous site files from {CACHE.name} (workflow continues).")
-            # Still refresh HTML if we have cached lake series + new weather
-            try:
-                cached = json.loads(CACHE.read_text())
-                render_html(cached, weather)
-                print(f"Rewrote {INDEX} with cached lake data + weather")
-            except Exception:
-                pass
             return
         raise
     CACHE.write_text(json.dumps(series, indent=2))
     print("Rendering chart…")
     render_chart(series)
     print("Writing index.html…")
-    render_html(series, weather)
+    render_html(series)
     print(f"Done. Lake={series['latest_lake']:.3f} FF={series['latest_ff']:.1f} gap={series['gap_now']:+.1f}")
     print(f"Wrote {INDEX} and {CHART_PNG}")
 

@@ -31,13 +31,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Refresh gauges, weather, chart, and index.html
-        env:
-          # Free AmbientWeather.net keys — Settings → Secrets and variables → Actions
-          AMBIENT_API_KEY: ${{ secrets.AMBIENT_API_KEY }}
-          AMBIENT_APPLICATION_KEY: ${{ secrets.AMBIENT_APPLICATION_KEY }}
-          # Optional: pin a station MAC if the account has more than one device
-          AMBIENT_MAC: ${{ secrets.AMBIENT_MAC }}
+      - name: Refresh gauges, chart, and index.html
         run: python update_site.py
 
       - name: Commit updated site (if changed)
@@ -45,8 +39,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html chart.png data/chart_series.json
-          [ -f data/weather.json ] && git add data/weather.json
-          [ -f weather_chart.png ] && git add weather_chart.png
           if git diff --staged --quiet; then
             echo "No content changes"
           else

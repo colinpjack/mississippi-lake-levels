@@ -447,6 +447,37 @@ def render_html(series: dict) -> None:
     ap_tick = ticker_markup(deltas.get("ap"), flat=0.4, digits=1)
     gap_tick = ticker_markup(deltas.get("gap"), flat=0.4, digits=1)
 
+    def _fmt_day(iso: str) -> str:
+        d = date.fromisoformat(iso)
+        return f"{d.strftime('%b')} {d.day}"
+
+    table_rows: list[str] = []
+    for d, lake_v, ff_v, ap_v in zip(
+        series["hist_days"], series["hist_lake"], series["hist_ff"], series["hist_ap"]
+    ):
+        table_rows.append(
+            "<tr>"
+            f'<td>{_fmt_day(d)}</td>'
+            f'<td class="num">{lake_v:.2f}</td>'
+            f'<td class="num">{ff_v:.1f}</td>'
+            f'<td class="num">{ap_v:.1f}</td>'
+            f'<td class="tag">Observed</td>'
+            "</tr>"
+        )
+    for d, lake_v, ff_v, ap_v in zip(
+        series["proj_days"], series["proj_lake"], series["proj_ff"], series["proj_ap"]
+    ):
+        table_rows.append(
+            '<tr class="proj">'
+            f'<td>{_fmt_day(d)}</td>'
+            f'<td class="num">{lake_v:.2f}</td>'
+            f'<td class="num">{ff_v:.1f}</td>'
+            f'<td class="num">{ap_v:.1f}</td>'
+            f'<td class="tag">Modeled</td>'
+            "</tr>"
+        )
+    data_table_body = "\n                ".join(table_rows)
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -468,6 +499,14 @@ def render_html(series: dict) -> None:
     .ticker.up {{ color:#0b6e4f; }}
     .ticker.down {{ color:#c45c26; }}
     .ticker.flat {{ color:#5a7a86; font-size:14px; }}
+    .data-table {{ width:100%; border-collapse:collapse; font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#243036; }}
+    .data-table th {{ text-align:left; padding:8px 6px; border-bottom:2px solid #d5dde3; color:#5a7a86; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; font-weight:700; }}
+    .data-table td {{ padding:7px 6px; border-bottom:1px solid #e4ebef; }}
+    .data-table td.num {{ text-align:right; font-variant-numeric:tabular-nums; }}
+    .data-table th.num {{ text-align:right; }}
+    .data-table td.tag {{ color:#6a7c84; font-size:12px; }}
+    .data-table tr.proj td {{ color:#5a7078; font-style:italic; }}
+    .data-table tr:last-child td {{ border-bottom:0; }}
     .chart-thumb {{ cursor:zoom-in; max-width:100%; height:auto; border:1px solid #d5dde3; border-radius:6px; display:block; transition:opacity .15s ease; }}
     .chart-thumb:hover {{ opacity:0.92; }}
     .lightbox {{ display:none; position:fixed; inset:0; z-index:1000; background:rgba(10,20,28,0.92); align-items:center; justify-content:center; padding:24px; box-sizing:border-box; }}
@@ -578,6 +617,26 @@ def render_html(series: dict) -> None:
                 <li>Secure floatables; check lines, chains, and shore power.</li>
                 <li>Wait for a sustained multi-day drop before major dock reconfiguration.</li>
               </ul>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px 8px 32px;font-family:Georgia,serif;font-size:16px;color:#243036;">
+              <h2 style="margin:0 0 8px 0;font-size:20px;color:#1a3a4a;">Chart data</h2>
+              <p style="margin:0 0 12px 0;font-size:14px;color:#5a7078;font-family:Arial,Helvetica,sans-serif;">Daily values from the chart above. Inflow = Ferguson’s Falls; outflow = Appleton. Modeled rows are the 7-day outlook (not an official forecast).</p>
+              <table class="data-table" role="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Date</th>
+                    <th class="num" scope="col">Lake (m MASL)</th>
+                    <th class="num" scope="col">Inflow (m³/s)</th>
+                    <th class="num" scope="col">Outflow (m³/s)</th>
+                    <th scope="col">Source</th>
+                  </tr>
+                </thead>
+                <tbody>
+                {data_table_body}
+                </tbody>
+              </table>
             </td>
           </tr>
           <tr>

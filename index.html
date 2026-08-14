@@ -19,6 +19,14 @@
     .ticker.up { color:#0b6e4f; }
     .ticker.down { color:#c45c26; }
     .ticker.flat { color:#5a7a86; font-size:14px; }
+    .data-table { width:100%; border-collapse:collapse; font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#243036; }
+    .data-table th { text-align:left; padding:8px 6px; border-bottom:2px solid #d5dde3; color:#5a7a86; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; font-weight:700; }
+    .data-table td { padding:7px 6px; border-bottom:1px solid #e4ebef; }
+    .data-table td.num { text-align:right; font-variant-numeric:tabular-nums; }
+    .data-table th.num { text-align:right; }
+    .data-table td.tag { color:#6a7c84; font-size:12px; }
+    .data-table tr.proj td { color:#5a7078; font-style:italic; }
+    .data-table tr:last-child td { border-bottom:0; }
     .chart-thumb { cursor:zoom-in; max-width:100%; height:auto; border:1px solid #d5dde3; border-radius:6px; display:block; transition:opacity .15s ease; }
     .chart-thumb:hover { opacity:0.92; }
     .lightbox { display:none; position:fixed; inset:0; z-index:1000; background:rgba(10,20,28,0.92); align-items:center; justify-content:center; padding:24px; box-sizing:border-box; }
@@ -129,6 +137,39 @@
                 <li>Secure floatables; check lines, chains, and shore power.</li>
                 <li>Wait for a sustained multi-day drop before major dock reconfiguration.</li>
               </ul>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px 8px 32px;font-family:Georgia,serif;font-size:16px;color:#243036;">
+              <h2 style="margin:0 0 8px 0;font-size:20px;color:#1a3a4a;">Chart data</h2>
+              <p style="margin:0 0 12px 0;font-size:14px;color:#5a7078;font-family:Arial,Helvetica,sans-serif;">Daily values from the chart above. Inflow = Ferguson’s Falls; outflow = Appleton. Modeled rows are the 7-day outlook (not an official forecast).</p>
+              <table class="data-table" role="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Date</th>
+                    <th class="num" scope="col">Lake (m MASL)</th>
+                    <th class="num" scope="col">Inflow (m³/s)</th>
+                    <th class="num" scope="col">Outflow (m³/s)</th>
+                    <th scope="col">Source</th>
+                  </tr>
+                </thead>
+                <tbody>
+                <tr><td>Aug 8</td><td class="num">134.47</td><td class="num">76.5</td><td class="num">70.0</td><td class="tag">Observed</td></tr>
+                <tr><td>Aug 9</td><td class="num">134.49</td><td class="num">74.0</td><td class="num">73.4</td><td class="tag">Observed</td></tr>
+                <tr><td>Aug 10</td><td class="num">134.49</td><td class="num">69.4</td><td class="num">74.5</td><td class="tag">Observed</td></tr>
+                <tr><td>Aug 11</td><td class="num">134.49</td><td class="num">64.3</td><td class="num">76.0</td><td class="tag">Observed</td></tr>
+                <tr><td>Aug 12</td><td class="num">134.47</td><td class="num">59.0</td><td class="num">74.9</td><td class="tag">Observed</td></tr>
+                <tr><td>Aug 13</td><td class="num">134.45</td><td class="num">55.0</td><td class="num">72.5</td><td class="tag">Observed</td></tr>
+                <tr><td>Aug 14</td><td class="num">134.43</td><td class="num">52.4</td><td class="num">69.1</td><td class="tag">Observed</td></tr>
+                <tr class="proj"><td>Aug 15</td><td class="num">134.41</td><td class="num">51.0</td><td class="num">60.9</td><td class="tag">Modeled</td></tr>
+                <tr class="proj"><td>Aug 16</td><td class="num">134.41</td><td class="num">48.2</td><td class="num">52.6</td><td class="tag">Modeled</td></tr>
+                <tr class="proj"><td>Aug 17</td><td class="num">134.41</td><td class="num">45.6</td><td class="num">48.1</td><td class="tag">Modeled</td></tr>
+                <tr class="proj"><td>Aug 18</td><td class="num">134.41</td><td class="num">43.2</td><td class="num">44.9</td><td class="tag">Modeled</td></tr>
+                <tr class="proj"><td>Aug 19</td><td class="num">134.41</td><td class="num">40.9</td><td class="num">42.3</td><td class="tag">Modeled</td></tr>
+                <tr class="proj"><td>Aug 20</td><td class="num">134.41</td><td class="num">38.8</td><td class="num">40.0</td><td class="tag">Modeled</td></tr>
+                <tr class="proj"><td>Aug 21</td><td class="num">134.41</td><td class="num">36.8</td><td class="num">37.9</td><td class="tag">Modeled</td></tr>
+                </tbody>
+              </table>
             </td>
           </tr>
           <tr>

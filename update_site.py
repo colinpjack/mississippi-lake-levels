@@ -455,6 +455,9 @@ def render_html(series: dict) -> None:
   <meta http-equiv="refresh" content="1800">
   <title>Mississippi Lake High Water Update</title>
   <meta name="description" content="People of the Lake — Mississippi Lake Ontario water level, inflow/outflow, and dock guidance. Updated several times daily.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <style>
     .kpi-grid {{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }}
     .kpi {{ background:#f4f8f9; border:1px solid #d7e4e8; border-radius:10px; padding:14px 12px; text-align:center; }}

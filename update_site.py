@@ -23,6 +23,7 @@ from zoneinfo import ZoneInfo
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 CHART_PNG = ROOT / "chart.png"
+YTD_CHART_PNG = ROOT / "ytd_chart.png"
 INDEX = ROOT / "index.html"
 CACHE = DATA / "chart_series.json"
 HISTORIC_DOY = DATA / "historic_doy_means.json"
@@ -128,6 +129,53 @@ def historic_mean_for_date(d: date | str) -> float | None:
         return float(val) if val is not None else None
     except Exception:
         return None
+
+
+def historic_monthly_means() -> dict[int, float]:
+    """Average of day-of-year historic means for each calendar month (1–12)."""
+    if not HISTORIC_DOY.exists():
+        return {}
+    try:
+        means = json.loads(HISTORIC_DOY.read_text()).get("means", {})
+    except Exception:
+        return {}
+    by_month: dict[int, list[float]] = defaultdict(list)
+    for md, val in means.items():
+        try:
+            month = int(md[:2])
+            by_month[month].append(float(val))
+        except Exception:
+            continue
+    return {m: mean(vals) for m, vals in by_month.items() if vals}
+
+
+def fetch_ytd_monthly(year: int, today: date) -> dict:
+    """Year-to-date monthly mean lake levels (MASL) from KiWIS."""
+    frm = f"{year}-01-01T00:00:00-0500"
+    to = today.strftime("%Y-%m-%dT23:59:59-0400")
+    try:
+        daily = fetch_lake_daily(frm, to)
+    except Exception as e:
+        print(f"  YTD lake fetch failed: {e}")
+        return {"ytd_months": [], "ytd_lake": [], "ytd_historic": []}
+
+    by_month: dict[str, list[float]] = defaultdict(list)
+    for d, v in daily.items():
+        if d.startswith(str(year)):
+            by_month[d[:7]].append(v)
+    months = sorted(by_month)
+    lake_means = [mean(by_month[m]) for m in months]
+    hist_by_m = historic_monthly_means()
+    hist_means = []
+    for m in months:
+        month_num = int(m[5:7])
+        hist_means.append(hist_by_m.get(month_num))
+    return {
+        "ytd_months": months,
+        "ytd_lake": lake_means,
+        "ytd_historic": hist_means,
+        "ytd_year": year,
+    }
 
 
 def load_cached_series() -> dict | None:
@@ -280,6 +328,7 @@ def build_series() -> dict:
         "historic_avg_m": (hist_avg - prev_hist_avg) if hist_avg is not None and prev_hist_avg is not None else None,
         "outlook_m": outlook_delta,
     }
+    ytd = fetch_ytd_monthly(today.year, today)
     return {
         "generated_edt": edt.strftime("%Y-%m-%d %H:%M"),
         "hist_days": days,
@@ -303,6 +352,7 @@ def build_series() -> dict:
         "proj_change_cm": (proj_lake[-1] - hist_lake[-1]) * 100,
         "deltas": deltas,
         "rain_bump": rain_bump,
+        **ytd,
         "params": {
             "k_calibrated": k,
             "effective_cm_per_m3s_day": k * CM_PER_M3S_DAY,
@@ -397,6 +447,76 @@ def render_chart(series: dict) -> None:
     )
     fig.savefig(CHART_PNG, dpi=160, bbox_inches="tight", facecolor="white")
     plt.close()
+
+
+def render_ytd_chart(series: dict) -> bool:
+    """Render year-to-date monthly lake level chart. Returns False if no data."""
+    months = series.get("ytd_months") or []
+    lake = series.get("ytd_lake") or []
+    hist = series.get("ytd_historic") or []
+    year = series.get("ytd_year") or date.today().year
+    if len(months) < 1 or len(lake) != len(months):
+        return False
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    plt.rcParams.update(
+        {
+            "font.family": "DejaVu Sans",
+            "axes.facecolor": "#f7fafb",
+            "figure.facecolor": "#ffffff",
+            "axes.edgecolor": "#c5d3d9",
+            "grid.color": "#dce6ea",
+        }
+    )
+    labels = [datetime.fromisoformat(f"{m}-01").strftime("%b") for m in months]
+    x = list(range(len(months)))
+
+    fig, ax = plt.subplots(figsize=(10.2, 4.2))
+    ax.bar(x, lake, width=0.62, color="#2f6f7e", edgecolor="#1a3a4a", linewidth=0.6, label=f"{year} monthly mean")
+    for xi, yi in zip(x, lake):
+        ax.text(xi, yi + 0.015, f"{yi:.2f}", ha="center", va="bottom", fontsize=8, color="#1a3a4a")
+
+    hist_x, hist_y = [], []
+    for i, hv in enumerate(hist):
+        if hv is not None:
+            hist_x.append(x[i])
+            hist_y.append(hv)
+    if hist_x:
+        ax.plot(
+            hist_x,
+            hist_y,
+            color="#8a6d3b",
+            lw=2.0,
+            marker="D",
+            ms=5,
+            ls="--",
+            label="Historic monthly avg (2014–2025)",
+        )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.set_ylabel("Level (m MASL)")
+    ax.set_xlabel("Month")
+    ax.set_title(f"Mississippi Lake level — {year} year to date (monthly means)", loc="left", color="#1a3a4a")
+    ax.legend(loc="best", fontsize=9)
+    ax.grid(True, axis="y")
+    ymin = min(lake + [v for v in hist if v is not None] or lake) - 0.15
+    ymax = max(lake + [v for v in hist if v is not None] or lake) + 0.25
+    ax.set_ylim(ymin, ymax)
+    fig.text(
+        0.01,
+        0.01,
+        "Monthly mean of daily KiWIS lake levels. Historic line = average of day-of-year means for that month.",
+        fontsize=7.5,
+        color="#6a7c84",
+    )
+    fig.savefig(YTD_CHART_PNG, dpi=160, bbox_inches="tight", facecolor="white")
+    plt.close()
+    return True
 
 
 def render_html(series: dict) -> None:
@@ -526,7 +646,7 @@ def render_html(series: dict) -> None:
 <body style="margin:0;padding:0;background:#eef2f4;font-family:Georgia,'Times New Roman',serif;">
   <div id="chart-lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Full screen chart" onclick="if(event.target===this)closeChart()">
     <button type="button" class="lightbox-close" onclick="closeChart()" aria-label="Close">Close ✕</button>
-    <img src="chart.png" alt="Full screen inflow, outflow, and lake level chart">
+    <img id="lightbox-img" src="chart.png" alt="Full screen chart">
     <div class="lightbox-hint">Click outside or press Esc to close</div>
   </div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef2f4;padding:24px 12px;">
@@ -601,7 +721,7 @@ def render_html(series: dict) -> None:
           </tr>
           <tr>
             <td style="padding:0 24px 8px 24px;" align="center">
-              <img src="chart.png" width="592" class="chart-thumb" alt="Inflow, outflow, and lake level chart with projection — click to enlarge" onclick="openChart()" title="Click to view full screen">
+              <img src="chart.png" width="592" class="chart-thumb" alt="Inflow, outflow, and lake level chart with projection — click to enlarge" onclick="openChart('chart.png')" title="Click to view full screen">
             </td>
           </tr>
           <tr>
@@ -640,6 +760,17 @@ def render_html(series: dict) -> None:
             </td>
           </tr>
           <tr>
+            <td style="padding:20px 32px 4px 32px;font-family:Georgia,serif;font-size:16px;color:#243036;">
+              <h2 style="margin:0 0 8px 0;font-size:20px;color:#1a3a4a;">Year-to-date lake level</h2>
+              <p style="margin:0 0 12px 0;font-size:15px;">Monthly mean lake level for {series.get("ytd_year") or ""} so far, compared with the long-term monthly average. <span style="color:#5a7a86;">Click the chart for full screen.</span></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 24px 16px 24px;" align="center">
+              <img src="ytd_chart.png" width="592" class="chart-thumb" alt="Year-to-date monthly lake level chart — click to enlarge" onclick="openChart('ytd_chart.png')" title="Click to view full screen">
+            </td>
+          </tr>
+          <tr>
             <td style="padding:16px 32px 28px 32px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#243036;">
               <p style="margin:0 0 6px 0;">• MVCA levels: <a href="https://www.mvc.on.ca/water-levels" style="color:#2f6f7e;">mvc.on.ca/water-levels</a></p>
               <p style="margin:0 0 14px 0;">• MVCA status: <a href="https://mvc.on.ca/flood-status/" style="color:#2f6f7e;">mvc.on.ca/flood-status</a> · 613-253-0006 ext. 248</p>
@@ -658,8 +789,10 @@ def render_html(series: dict) -> None:
     </tr>
   </table>
   <script>
-    function openChart() {{
+    function openChart(src) {{
       var lb = document.getElementById('chart-lightbox');
+      var img = document.getElementById('lightbox-img');
+      if (img && src) img.src = src;
       lb.classList.add('open');
       document.body.style.overflow = 'hidden';
     }}
@@ -692,10 +825,13 @@ def main() -> None:
     CACHE.write_text(json.dumps(series, indent=2))
     print("Rendering chart…")
     render_chart(series)
+    print("Rendering YTD chart…")
+    if not render_ytd_chart(series):
+        print("  (skipped YTD chart — no monthly data)")
     print("Writing index.html…")
     render_html(series)
     print(f"Done. Lake={series['latest_lake']:.3f} FF={series['latest_ff']:.1f} gap={series['gap_now']:+.1f}")
-    print(f"Wrote {INDEX} and {CHART_PNG}")
+    print(f"Wrote {INDEX}, {CHART_PNG}, and {YTD_CHART_PNG}")
 
 
 if __name__ == "__main__":

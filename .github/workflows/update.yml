@@ -38,7 +38,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html chart.png ytd_chart.png watershed_profile.png data/chart_series.json
+          git add index.html chart.png ytd_chart.png watershed_profile.png watershed_full_profile.png data/chart_series.json
           if git diff --staged --quiet; then
             echo "No content changes"
           else

@@ -33,6 +33,7 @@ DATA = ROOT / "data"
 CHART_PNG = ROOT / "chart.png"
 YTD_CHART_PNG = ROOT / "ytd_chart.png"
 WATERSHED_PNG = ROOT / "watershed_profile.png"
+WATERSHED_FULL_PNG = ROOT / "watershed_full_profile.png"
 INDEX = ROOT / "index.html"
 CACHE = DATA / "chart_series.json"
 HISTORIC_DOY = DATA / "historic_doy_means.json"
@@ -40,9 +41,40 @@ HISTORIC_DOY = DATA / "historic_doy_means.json"
 AREA_M2 = 25e6  # Mississippi Lake ~25 km²
 CM_PER_M3S_DAY = 86400 / AREA_M2 * 100
 LAKE_TS = 1404042
-CROTCH_TS = 16468042
-DALHOUSIE_TS = 54708042
+CROTCH_TS = 16468042  # Crotch GOES (MVCA20) — more reliable than main dam gauge
+DALHOUSIE_TS = 54708042  # Dalhousie outlet Public stage (MASL)
 EARLY_JULY_LEVEL = 134.10
+
+# Full-system lake stage series (KiWIS Stage CGVD28, typically 102.Edited)
+FULL_LEVEL_TS: dict[str, tuple[str, int]] = {
+    "shabomeka": ("Shabomeka Lake", 1395042),
+    "mazinaw": ("Mazinaw Lake", 1399042),
+    "kashwakamak": ("Kashwakamak Lake", 1358042),
+    "mississagagon": ("Mississagagon Lake", 2511042),
+    "big_gull": ("Big Gull Lake", 1400042),
+    "pine": ("Pine Lake", 49830042),
+    "malcolm": ("Malcolm Lake", 49818042),
+    "farm": ("Farm Lake", 32304042),
+    "crotch": ("Crotch Lake", CROTCH_TS),
+    "palmerston": ("Palmerston Lake", 1402042),
+    "canonto": ("Canonto Lake", 36589042),
+    "summit": ("Summit Lake", 52426042),
+    "mosque": ("Mosque Lake", 39481042),
+    "stump": ("Stump Lake", 39476042),
+    "widow": ("Widow Lake", 37160042),
+    "dalhousie": ("Dalhousie Lake", DALHOUSIE_TS),
+    "clayton": ("Clayton Lake", 91719042),
+    "lanark": ("Lanark", 80686042),
+    "mississippi": ("Mississippi Lake", LAKE_TS),
+    "carleton": ("Carleton Place", 1405042),
+}
+FULL_FLOW_WSC: dict[str, tuple[str, str]] = {
+    "marble": ("Marble Lake outflow", "02KF016"),
+    "dalhousie_out": ("Dalhousie outlet", "02KF019"),
+    "ferguson": ("Ferguson’s Falls", "02KF001"),
+    "appleton": ("Appleton", "02KF006"),
+    "galetta": ("Galetta", "02KF002"),
+}
 
 ctx = ssl.create_default_context()
 try:
@@ -197,6 +229,98 @@ def fetch_watershed_core(frm: str, to: str, ff: dict[str, float], ap: dict[str, 
     add_flow("ferguson", "Ferguson’s Falls", ff, None)
     add_flow("appleton", "Appleton", ap, None)
     return {"watershed": nodes}
+
+
+def fetch_watershed_full(
+    frm: str,
+    to: str,
+    *,
+    ff: dict[str, float],
+    ap: dict[str, float],
+    lake: dict[str, float],
+    core: dict[str, dict] | None = None,
+) -> dict:
+    """Full Mississippi system snapshots for the extended profile diagram."""
+    nodes: dict[str, dict] = {}
+    core = core or {}
+    frm_long = (date.fromisoformat(frm[:10]) - timedelta(days=20)).isoformat()
+
+    def add_level(key: str, label: str, daily: dict[str, float], ts: datetime | None) -> None:
+        latest, delta = _series_trend(daily)
+        nodes[key] = {
+            "label": label,
+            "kind": "level",
+            "value": latest,
+            "delta_7d": delta * 100 if delta is not None else None,
+            "unit": "m",
+            "as_of_iso": ts.isoformat() if ts else "",
+        }
+
+    def add_flow(key: str, label: str, daily: dict[str, float], ts: datetime | None) -> None:
+        latest, delta = _series_trend(daily)
+        nodes[key] = {
+            "label": label,
+            "kind": "flow",
+            "value": latest,
+            "delta_7d": delta,
+            "unit": "m3s",
+            "as_of_iso": ts.isoformat() if ts else "",
+        }
+
+    # Prefer already-fetched core nodes where available
+    for key in ("crotch", "dalhousie", "mississippi", "ferguson", "appleton"):
+        if key in core:
+            nodes[key] = dict(core[key])
+
+    if "mississippi" not in nodes:
+        add_level("mississippi", "Mississippi Lake", lake, None)
+    if "ferguson" not in nodes:
+        add_flow("ferguson", "Ferguson’s Falls", ff, None)
+    if "appleton" not in nodes:
+        add_flow("appleton", "Appleton", ap, None)
+
+    for key, (label, ts_id) in FULL_LEVEL_TS.items():
+        if key in nodes and nodes[key].get("value") is not None:
+            continue
+        try:
+            # Some upper-lake gauges lag; use a longer window for trends/latest.
+            daily, ts = fetch_lake_daily(frm_long, to, ts_id=ts_id)
+            add_level(key, label, daily, ts)
+        except Exception as e:
+            print(f"  Full watershed level {label} failed: {e}")
+            nodes[key] = {
+                "label": label,
+                "kind": "level",
+                "value": None,
+                "delta_7d": None,
+                "unit": "m",
+                "as_of_iso": "",
+            }
+
+    for key, (label, stn) in FULL_FLOW_WSC.items():
+        if key in nodes and nodes[key].get("value") is not None:
+            continue
+        if key == "ferguson":
+            add_flow(key, label, ff, None)
+            continue
+        if key == "appleton":
+            add_flow(key, label, ap, None)
+            continue
+        try:
+            daily, ts = fetch_wsc_daily(stn, frm, to)
+            add_flow(key, label, daily, ts)
+        except Exception as e:
+            print(f"  Full watershed flow {label} ({stn}) failed: {e}")
+            nodes[key] = {
+                "label": label,
+                "kind": "flow",
+                "value": None,
+                "delta_7d": None,
+                "unit": "m3s",
+                "as_of_iso": "",
+            }
+
+    return {"watershed_full": nodes}
 
 
 def fetch_open_meteo_wed_rain(lat=45.14, lon=-76.15) -> dict[str, float]:
@@ -449,6 +573,15 @@ def build_series() -> dict:
     if "appleton" in ws:
         ws["appleton"]["as_of_iso"] = ap_iso
 
+    watershed_full = fetch_watershed_full(frm, to, ff=ff, ap=ap, lake=lake, core=ws)
+    wsf = watershed_full["watershed_full"]
+    if "mississippi" in wsf:
+        wsf["mississippi"]["as_of_iso"] = lake_iso
+    if "ferguson" in wsf:
+        wsf["ferguson"]["as_of_iso"] = ff_iso
+    if "appleton" in wsf:
+        wsf["appleton"]["as_of_iso"] = ap_iso
+
     return {
         "generated_edt": edt.strftime("%Y-%m-%d %H:%M"),
         "lake_as_of_iso": lake_iso,
@@ -480,6 +613,7 @@ def build_series() -> dict:
         "rain_bump": rain_bump,
         **ytd,
         **watershed,
+        **watershed_full,
         "params": {
             "k_calibrated": k,
             "effective_cm_per_m3s_day": k * CM_PER_M3S_DAY,
@@ -927,6 +1061,380 @@ def render_watershed_chart(series: dict) -> bool:
     return True
 
 
+def render_watershed_full_chart(series: dict) -> bool:
+    """Full Mississippi system elevation profile — headwaters through Ottawa River."""
+    nodes = series.get("watershed_full") or {}
+    if not nodes:
+        return False
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from matplotlib.patches import Patch, Rectangle
+
+    def z_of(key: str, fallback: float) -> float:
+        val = (nodes.get(key) or {}).get("value")
+        try:
+            return float(val) if val is not None else fallback
+        except (TypeError, ValueError):
+            return fallback
+
+    # Schematic elevations (MASL) with live overrides where available
+    z_mosque = z_of("mosque", 319.0)
+    z_summit = z_of("summit", 281.0)
+    z_shab = z_of("shabomeka", 271.0)
+    z_palm = z_of("palmerston", 272.0)
+    z_maz = z_of("mazinaw", 268.0)
+    z_can = z_of("canonto", 268.0)
+    z_missag = z_of("mississagagon", 268.0)
+    z_kash = z_of("kashwakamak", 261.0)
+    z_pine = z_of("pine", 255.0)
+    z_gull = z_of("big_gull", 253.0)
+    z_malc = z_of("malcolm", 253.0)
+    z_farm = z_of("farm", 248.0)
+    z_crotch = z_of("crotch", 239.7)
+    z_stump = z_of("stump", 187.4)
+    z_widow = z_of("widow", 184.0)
+    z_dal = z_of("dalhousie", 156.9)
+    z_clay = z_of("clayton", 161.8)
+    z_lanark = z_of("lanark", 144.2)
+    z_miss = z_of("mississippi", 134.4)
+    z_cp = z_of("carleton", z_miss - 0.15)
+    z_ap = z_miss - 1.5
+    z_almonte = z_miss - 8.0
+    z_galetta = z_miss - 40.0
+    z_ottawa = 70.0
+
+    fig, ax = plt.subplots(figsize=(15.5, 7.4))
+    ax.set_xlim(0, 22.2)
+    ax.set_ylim(55, 355)
+    ax.set_facecolor("#d9eaf3")
+    fig.patch.set_facecolor("white")
+    ax.axhspan(55, 355, color="#d0e6f1", zorder=0)
+
+    def _ease(t):
+        t = np.clip(t, 0, 1)
+        return t * t * (3 - 2 * t)
+
+    def _bowl_depth(t, depth):
+        return depth * (1.0 - 0.9 * t * t)
+
+    xs = np.linspace(0.15, 21.9, 1400)
+    surface = np.full_like(xs, z_ottawa)
+    floor = np.full_like(xs, z_ottawa - 6.0)
+    kind = np.full(xs.shape, "river", dtype=object)
+
+    def set_span(x0, x1, fn_surface, fn_floor, k):
+        m = (xs >= x0) & (xs <= x1)
+        if not np.any(m):
+            return
+        t = (xs[m] - x0) / max(x1 - x0, 1e-9)
+        surface[m] = fn_surface(t)
+        floor[m] = fn_floor(t)
+        kind[m] = k
+
+    # Main-stem continuous profile (schematic x stations)
+    # Shabomeka → Mazinaw → Kash → Gull/Farm → Crotch → Stump → Dalhousie → Miss → Appleton → Almonte → Galetta → Ottawa
+    segs = [
+        (0.25, 1.35, z_shab, 14, "lake"),
+        (1.35, 2.15, z_maz, None, "river"),  # drop to Mazinaw
+        (2.15, 3.35, z_maz, 12, "lake"),
+        (3.35, 4.25, z_kash, None, "river"),
+        (4.25, 5.45, z_kash, 11, "lake"),
+        (5.45, 6.35, z_gull, None, "river"),
+        (6.35, 7.45, z_gull, 10, "lake"),
+        (7.45, 8.20, z_farm, None, "river"),
+        (8.20, 9.55, z_crotch, 15, "lake"),
+        (9.55, 10.55, z_stump, None, "river"),
+        (10.55, 11.45, z_stump, 9, "lake"),
+        (11.45, 12.45, z_dal, None, "river"),
+        (12.45, 13.55, z_dal, 10, "lake"),
+        (13.55, 14.55, z_miss, None, "river"),
+        (14.55, 16.15, z_miss, 10, "lake"),
+        (16.15, 17.35, z_ap, None, "river"),
+        (17.35, 18.55, z_almonte, None, "river"),
+        (18.55, 20.00, z_galetta, None, "river"),
+        (20.00, 21.70, z_ottawa, None, "river"),
+    ]
+
+    for i, (x0, x1, z, depth, k) in enumerate(segs):
+        z_prev = segs[i - 1][2] if i else z
+        if k == "lake":
+            set_span(
+                x0,
+                x1,
+                lambda t, zz=z: np.full_like(t, zz),
+                lambda t, zz=z, d=depth: zz - _bowl_depth(2 * t - 1, d),
+                "lake",
+            )
+        else:
+            set_span(
+                x0,
+                x1,
+                lambda t, za=z_prev, zb=z: za + (zb - za) * _ease(t),
+                lambda t, za=z_prev, zb=z: (za + (zb - za) * _ease(t)) - (9 - 2 * _ease(t)),
+                "river",
+            )
+
+    kernel = np.array([1, 2, 3, 2, 1], dtype=float)
+    kernel /= kernel.sum()
+    surface = np.convolve(surface, kernel, mode="same")
+    floor = np.convolve(floor, kernel, mode="same")
+    floor = np.minimum(floor, surface - 4.0)
+
+    land_x = np.concatenate([[xs[0]], xs, [xs[-1]], [xs[0]]])
+    land_y = np.concatenate([[50], floor, [50], [50]])
+    ax.fill(land_x, land_y, color="#cbb79f", zorder=1)
+    ax.plot(xs, floor, color="#9a8874", lw=0.8, alpha=0.65, solid_capstyle="round", zorder=2)
+
+    def fill_kind(target, color, alpha=0.95):
+        m = kind == target
+        if not np.any(m):
+            return
+        idx = np.where(m)[0]
+        cuts = np.where(np.diff(idx) > 1)[0]
+        starts = np.r_[idx[0], idx[cuts + 1]]
+        ends = np.r_[idx[cuts], idx[-1]]
+        for a, b in zip(starts, ends):
+            seg_x = xs[a : b + 1]
+            seg_s = surface[a : b + 1]
+            seg_f = floor[a : b + 1]
+            ax.fill(
+                np.concatenate([seg_x, seg_x[::-1]]),
+                np.concatenate([seg_s, seg_f[::-1]]),
+                color=color,
+                alpha=alpha,
+                zorder=3,
+            )
+            ax.plot(seg_x, seg_s, color="#16384a", lw=1.15, solid_capstyle="round", zorder=4)
+
+    fill_kind("lake", "#2f6f7e")
+    fill_kind("river", "#5ba3c9", alpha=0.9)
+
+    def draw_dam(x, z_top, height=12, label="", label_side=1, fontsize=6.2):
+        ax.add_patch(
+            Rectangle(
+                (x - 0.045, z_top - height),
+                0.09,
+                height + 2.0,
+                facecolor="#2b2b2b",
+                edgecolor="#111",
+                lw=0.3,
+                zorder=5,
+                clip_on=False,
+            )
+        )
+        if label:
+            ax.text(
+                x + 0.12 * label_side,
+                z_top - height * 0.35,
+                label,
+                ha="left" if label_side > 0 else "right",
+                va="center",
+                fontsize=fontsize,
+                color="#3a4a52",
+                zorder=6,
+                rotation=0,
+                bbox=dict(boxstyle="round,pad=0.15", facecolor="white", edgecolor="#d5dde3", alpha=0.9),
+            )
+
+    # Main-stem dams / generating stations
+    draw_dam(1.35, z_shab, height=12, label="Shabomeka Dam")
+    draw_dam(3.35, z_maz, height=12, label="Mazinaw Dam")
+    draw_dam(5.45, z_kash, height=11, label="Kashwakamak Dam")
+    draw_dam(7.45, z_gull, height=10, label="Big Gull Dam")
+    draw_dam(8.20, z_farm, height=9, label="Farm Dam")
+    draw_dam(9.55, z_crotch, height=15, label="Crotch Dam (OPG)")
+    draw_dam(10.55, (z_crotch + z_stump) / 2, height=10, label="High Falls GS")
+    draw_dam(16.15, z_miss, height=11, label="Carleton Place Dam")
+    draw_dam(17.05, z_ap, height=8, label="Appleton GS")
+    draw_dam(17.85, (z_ap + z_almonte) / 2, height=7, label="Enerdu GS")
+    draw_dam(18.55, z_almonte, height=8, label="Almonte GS")
+    draw_dam(20.00, z_galetta, height=9, label="Galetta GS")
+
+    # Tributary / side-reservoir dams (schematic joins) — compact ticks
+    side_dams = [
+        (0.50, z_mosque, "Mosque"),
+        (0.90, z_summit, "Summit"),
+        (1.70, z_palm, "Palmerston"),
+        (2.50, z_can, "Canonto"),
+        (4.80, z_missag, "Mississagagon"),
+        (6.80, z_pine, "Pine"),
+        (7.10, z_malc, "Malcolm"),
+        (12.00, z_widow, "Widow"),
+        (12.70, (z_widow + z_lanark) / 2, "Bennett"),
+        (13.10, z_lanark, "Lanark"),
+        (14.10, z_clay, "Clayton"),
+    ]
+    for x, z, lab in side_dams:
+        ax.plot([x - 0.28, x], [z, max(z - 10, z * 0.96)], color="#7aa0b0", lw=1.0, zorder=4, solid_capstyle="round")
+        ax.add_patch(
+            Rectangle(
+                (x - 0.035, z - 7),
+                0.07,
+                9,
+                facecolor="#2b2b2b",
+                edgecolor="#111",
+                lw=0.25,
+                zorder=5,
+                clip_on=False,
+            )
+        )
+        ax.text(x, z + 3.5, lab, ha="center", va="bottom", fontsize=5.4, color="#4a5a62", zorder=6)
+
+    def label_box(x, z, node, name, kind_label, x_text, y_text):
+        val = (node or {}).get("value")
+        d7 = (node or {}).get("delta_7d")
+        arrow, tcolor = _trend_arrow(d7, flat=0.8)
+        if kind_label == "level":
+            if val is None:
+                body = f"{name}\n— m MASL"
+            else:
+                trend = "—" if d7 is None else f"{arrow} {d7:+.0f} cm / 7d"
+                body = f"{name}\n{val:.2f} m\n{trend}"
+            face, edge, marker = "#ffffff", "#cfd8dd", "o"
+        else:
+            if val is None:
+                body = f"{name}\n— m³/s"
+            else:
+                trend = "—" if d7 is None else f"{arrow} {d7:+.1f} m³/s / 7d"
+                body = f"{name}\n{val:.1f} m³/s\n{trend}"
+            face, edge, marker = "#fff8e8", "#ead9a8", "s"
+        ax.annotate(
+            body,
+            xy=(x, z),
+            xytext=(x_text, y_text),
+            ha="center",
+            va="top",
+            fontsize=7.2,
+            color="#1a3a4a",
+            linespacing=1.35,
+            arrowprops=dict(arrowstyle="-", color="#7a8f99", lw=0.7, shrinkA=3, shrinkB=4),
+            bbox=dict(boxstyle="round,pad=0.32", facecolor=face, edgecolor=edge, alpha=0.97),
+            zorder=7,
+            clip_on=False,
+        )
+        ax.plot(
+            [x],
+            [z + 1.0],
+            marker=marker,
+            color=tcolor,
+            ms=4.5,
+            zorder=8,
+            markeredgecolor="white",
+            markeredgewidth=0.6,
+        )
+
+    # Staggered callouts — major lakes + flows
+    label_box(0.80, z_shab, nodes.get("shabomeka"), "Shabomeka", "level", 1.10, 338)
+    label_box(2.75, z_maz, nodes.get("mazinaw"), "Mazinaw", "level", 2.70, 316)
+    label_box(4.85, z_kash, nodes.get("kashwakamak"), "Kashwakamak", "level", 4.55, 338)
+    label_box(3.70, (z_maz + z_kash) / 2, nodes.get("marble"), "Marble outflow", "flow", 3.85, 298)
+    label_box(6.90, z_gull, nodes.get("big_gull"), "Big Gull", "level", 6.85, 316)
+    label_box(8.85, z_crotch, nodes.get("crotch"), "Crotch Lake", "level", 8.95, 338)
+    label_box(11.00, z_stump, nodes.get("stump"), "Stump Lake", "level", 10.95, 316)
+    label_box(13.00, z_dal, nodes.get("dalhousie"), "Dalhousie", "level", 12.65, 338)
+    label_box(13.95, (z_dal + z_miss) / 2, nodes.get("ferguson"), "Ferguson’s Falls", "flow", 14.15, 316)
+    label_box(15.35, z_miss, nodes.get("mississippi"), "Mississippi Lake", "level", 15.55, 338)
+    label_box(16.85, z_ap, nodes.get("appleton"), "Appleton", "flow", 17.05, 316)
+    label_box(19.20, z_galetta, nodes.get("galetta"), "Galetta", "flow", 19.25, 338)
+    ax.annotate(
+        "Ottawa River\nconfluence\n~70 m MASL",
+        xy=(21.1, z_ottawa),
+        xytext=(21.0, 316),
+        ha="center",
+        va="top",
+        fontsize=7.2,
+        color="#1a3a4a",
+        linespacing=1.35,
+        arrowprops=dict(arrowstyle="-", color="#7a8f99", lw=0.7, shrinkA=3, shrinkB=4),
+        bbox=dict(boxstyle="round,pad=0.32", facecolor="#eef6f0", edgecolor="#b7d0c0", alpha=0.97),
+        zorder=7,
+        clip_on=False,
+    )
+    ax.plot([21.1], [z_ottawa + 1.0], marker="D", color="#2f6f7e", ms=4.5, zorder=8, markeredgecolor="white", markeredgewidth=0.6)
+
+    # Side-lake level chips
+    def side_chip(x, z, node, name):
+        val = (node or {}).get("value")
+        txt = f"{name} {val:.1f} m" if val is not None else f"{name} —"
+        ax.text(
+            x,
+            min(z + 14, 348),
+            txt,
+            ha="center",
+            va="bottom",
+            fontsize=5.6,
+            color="#3a4a52",
+            zorder=7,
+            bbox=dict(boxstyle="round,pad=0.16", facecolor="#f7fafb", edgecolor="#d5dde3", alpha=0.95),
+        )
+
+    side_chip(0.50, z_mosque, nodes.get("mosque"), "Mosque")
+    side_chip(0.90, z_summit, nodes.get("summit"), "Summit")
+    side_chip(1.70, z_palm, nodes.get("palmerston"), "Palmerston")
+    side_chip(2.50, z_can, nodes.get("canonto"), "Canonto")
+    side_chip(4.80, z_missag, nodes.get("mississagagon"), "Mississagagon")
+    side_chip(6.80, z_pine, nodes.get("pine"), "Pine")
+    side_chip(7.10, z_malc, nodes.get("malcolm"), "Malcolm")
+    side_chip(12.00, z_widow, nodes.get("widow"), "Widow")
+    side_chip(13.10, z_lanark, nodes.get("lanark"), "Lanark")
+    side_chip(14.10, z_clay, nodes.get("clayton"), "Clayton")
+
+    ax.annotate(
+        "",
+        xy=(21.7, 62),
+        xytext=(0.2, 62),
+        arrowprops=dict(arrowstyle="->", color="#5a7a86", lw=1.15),
+    )
+    ax.text(11.0, 58.5, "Flow direction → Ottawa River near Fitzroy Harbour", ha="center", va="top", fontsize=8, color="#5a7a86")
+
+    legend_handles = [
+        Patch(facecolor="#2f6f7e", edgecolor="#1f4e79", label="Lake"),
+        Patch(facecolor="#5ba3c9", edgecolor="#1f4e79", label="River / channel"),
+        Patch(facecolor="#2b2b2b", edgecolor="#111111", label="Dam / generating station"),
+    ]
+    leg = ax.legend(
+        handles=legend_handles,
+        loc="lower right",
+        bbox_to_anchor=(0.995, 0.12),
+        fontsize=8,
+        frameon=True,
+        fancybox=True,
+        framealpha=0.96,
+        edgecolor="#d5dde3",
+        title="Legend",
+    )
+    leg.get_title().set_fontsize(8)
+    leg.get_title().set_color("#1a3a4a")
+
+    ax.set_title(
+        "Mississippi watershed profile (full system) — dams, levels, flows & 7-day trends",
+        loc="left",
+        color="#1a3a4a",
+        fontsize=11.5,
+        pad=12,
+    )
+    ax.set_ylabel("Elevation (m MASL, exaggerated)")
+    ax.set_xticks([])
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+    ax.grid(True, axis="y", alpha=0.28)
+    fig.text(
+        0.01,
+        0.005,
+        "NOT TO SCALE · Schematic main stem + side dams. Levels from MVCA/KiWIS; flows from WSC. Tributary lakes shown at join points. Trends ≈ change vs ~7 days earlier.",
+        fontsize=7.2,
+        color="#6a7c84",
+    )
+    fig.savefig(WATERSHED_FULL_PNG, dpi=160, bbox_inches="tight", facecolor="white")
+    plt.close()
+    return True
+
+
 def render_html(series: dict) -> None:
     lake = series["latest_lake"]
     ff = series["latest_ff"]
@@ -941,6 +1449,7 @@ def render_html(series: dict) -> None:
     chart_src = f"chart.png?v={_asset_v(CHART_PNG)}"
     ytd_src = f"ytd_chart.png?v={_asset_v(YTD_CHART_PNG)}"
     watershed_src = f"watershed_profile.png?v={_asset_v(WATERSHED_PNG)}"
+    watershed_full_src = f"watershed_full_profile.png?v={_asset_v(WATERSHED_FULL_PNG)}"
     lake_as_of_iso = series.get("lake_as_of_iso") or ""
     lake_as_of_edt = series.get("lake_as_of_edt") or "unavailable"
     ff_as_of_iso = series.get("ff_as_of_iso") or ""
@@ -1231,8 +1740,19 @@ def render_html(series: dict) -> None:
             </td>
           </tr>
           <tr>
-            <td style="padding:0 24px 16px 24px;" align="center">
+            <td style="padding:0 24px 8px 24px;" align="center">
               <img src="{watershed_src}" width="592" class="chart-thumb" alt="Mississippi watershed elevation profile with levels, flows, and 7-day trends — click to enlarge" onclick="openChart('{watershed_src}')" title="Click to view full screen">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:12px 32px 4px 32px;font-family:Georgia,serif;font-size:16px;color:#243036;">
+              <h2 style="margin:0 0 8px 0;font-size:20px;color:#1a3a4a;">Full watershed system</h2>
+              <p style="margin:0 0 12px 0;font-size:15px;">Headwaters (Shabomeka / Mazinaw) through all major dams and generating stations to the Ottawa River confluence, including side-reservoir levels where gauges report. <span style="color:#5a7a86;">Click for full screen. Not to scale.</span></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 24px 16px 24px;" align="center">
+              <img src="{watershed_full_src}" width="592" class="chart-thumb" alt="Full Mississippi watershed elevation profile with dams, lake levels, flows, and 7-day trends — click to enlarge" onclick="openChart('{watershed_full_src}')" title="Click to view full screen">
             </td>
           </tr>
           <tr>
@@ -1328,10 +1848,13 @@ def main() -> None:
     print("Rendering watershed profile…")
     if not render_watershed_chart(series):
         print("  (skipped watershed profile — no node data)")
+    print("Rendering full watershed profile…")
+    if not render_watershed_full_chart(series):
+        print("  (skipped full watershed profile — no node data)")
     print("Writing index.html…")
     render_html(series)
     print(f"Done. Lake={series['latest_lake']:.3f} FF={series['latest_ff']:.1f} gap={series['gap_now']:+.1f}")
-    print(f"Wrote {INDEX}, {CHART_PNG}, {YTD_CHART_PNG}, and {WATERSHED_PNG}")
+    print(f"Wrote {INDEX}, {CHART_PNG}, {YTD_CHART_PNG}, {WATERSHED_PNG}, and {WATERSHED_FULL_PNG}")
 
 
 if __name__ == "__main__":

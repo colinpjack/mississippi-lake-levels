@@ -67,20 +67,41 @@ def fetch_json(url: str, *, attempts: int = 4, timeout: float = 45) -> dict | li
     raise urllib.error.URLError(f"Failed after {attempts} attempts: {last_err}")
 
 
-def fetch_wsc_daily(stn: str, start: str, end: str) -> dict[str, float]:
+def _parse_obs_time(raw: str) -> datetime | None:
+    """Parse gauge timestamps into timezone-aware UTC datetimes."""
+    s = (raw or "").strip()
+    if not s:
+        return None
+    try:
+        if s.endswith("Z"):
+            return datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(timezone.utc)
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            # KiWIS lake stamps are Eastern local without always sending offset
+            dt = dt.replace(tzinfo=ZoneInfo("America/Toronto"))
+        return dt.astimezone(timezone.utc)
+    except Exception:
+        return None
+
+
+def fetch_wsc_daily(stn: str, start: str, end: str) -> tuple[dict[str, float], datetime | None]:
     url = (
         "https://api.weather.gc.ca/collections/hydrometric-realtime/items"
         f"?STATION_NUMBER={stn}&datetime={start}/{end}&limit=10000&f=json"
     )
     by: dict[str, list[float]] = defaultdict(list)
+    latest: datetime | None = None
     for f in fetch_json(url).get("features", []):
         p = f["properties"]
         if p.get("DISCHARGE") is not None:
             by[p["DATETIME"][:10]].append(float(p["DISCHARGE"]))
-    return {d: mean(v) for d, v in sorted(by.items())}
+            ts = _parse_obs_time(p.get("DATETIME", ""))
+            if ts is not None and (latest is None or ts > latest):
+                latest = ts
+    return {d: mean(v) for d, v in sorted(by.items())}, latest
 
 
-def fetch_lake_daily(frm: str, to: str) -> dict[str, float]:
+def fetch_lake_daily(frm: str, to: str) -> tuple[dict[str, float], datetime | None]:
     params = {
         "service": "kisters",
         "type": "queryServices",
@@ -94,11 +115,15 @@ def fetch_lake_daily(frm: str, to: str) -> dict[str, float]:
     url = "https://waterdata.quinteconservation.ca/KiWIS/KiWIS?" + urllib.parse.urlencode(params)
     data = fetch_json(url)
     by: dict[str, list[float]] = defaultdict(list)
+    latest: datetime | None = None
     if isinstance(data, list) and data:
         for row in data[0].get("data") or []:
             if isinstance(row, list) and len(row) >= 2 and row[1] is not None:
                 by[str(row[0])[:10]].append(float(row[1]))
-    return {d: mean(v) for d, v in sorted(by.items())}
+                ts = _parse_obs_time(str(row[0]))
+                if ts is not None and (latest is None or ts > latest):
+                    latest = ts
+    return {d: mean(v) for d, v in sorted(by.items())}, latest
 
 
 def fetch_open_meteo_wed_rain(lat=45.14, lon=-76.15) -> dict[str, float]:
@@ -154,7 +179,7 @@ def fetch_ytd_monthly(year: int, today: date) -> dict:
     frm = f"{year}-01-01T00:00:00-0500"
     to = today.strftime("%Y-%m-%dT23:59:59-0400")
     try:
-        daily = fetch_lake_daily(frm, to)
+        daily, _ = fetch_lake_daily(frm, to)
     except Exception as e:
         print(f"  YTD lake fetch failed: {e}")
         return {"ytd_months": [], "ytd_lake": [], "ytd_historic": []}
@@ -221,9 +246,9 @@ def build_series() -> dict:
     frm = (now - timedelta(days=10)).strftime("%Y-%m-%dT00:00:00-0400")
     to = (now + timedelta(days=1)).strftime("%Y-%m-%dT23:59:59-0400")
 
-    ff = fetch_wsc_daily("02KF001", start, end)
-    ap = fetch_wsc_daily("02KF006", start, end)
-    lake = fetch_lake_daily(frm, to)
+    ff, ff_ts = fetch_wsc_daily("02KF001", start, end)
+    ap, ap_ts = fetch_wsc_daily("02KF006", start, end)
+    lake, lake_ts = fetch_lake_daily(frm, to)
 
     # Flow gauges often publish today's partial day before KiWIS has a lake day.
     # Only chart days that have both lake level and Ferguson inflow.
@@ -329,8 +354,19 @@ def build_series() -> dict:
         "outlook_m": outlook_delta,
     }
     ytd = fetch_ytd_monthly(today.year, today)
+    gauge_times = [t for t in (lake_ts, ff_ts, ap_ts) if t is not None]
+    data_as_of = max(gauge_times) if gauge_times else None
+    data_as_of_iso = data_as_of.isoformat() if data_as_of else ""
+    if data_as_of:
+        local = data_as_of.astimezone(ZoneInfo("America/Toronto"))
+        data_as_of_edt = f"{local.strftime('%b')} {local.day}, {local.strftime('%I:%M %p').lstrip('0')} EDT"
+    else:
+        data_as_of_edt = "unavailable"
+
     return {
         "generated_edt": edt.strftime("%Y-%m-%d %H:%M"),
+        "data_as_of_iso": data_as_of_iso,
+        "data_as_of_edt": data_as_of_edt,
         "hist_days": days,
         "hist_ff": hist_ff,
         "hist_ap": hist_ap,
@@ -530,6 +566,8 @@ def render_html(series: dict) -> None:
     proj = series["proj_end_lake"]
     dcm = series["proj_change_cm"]
     when = series["generated_edt"]
+    data_as_of_iso = series.get("data_as_of_iso") or ""
+    data_as_of_edt = series.get("data_as_of_edt") or "unavailable"
     deltas = series.get("deltas") or {}
     # Date label for the glance header — prefer latest observed gauge day
     try:
@@ -619,6 +657,14 @@ def render_html(series: dict) -> None:
     .ticker.up {{ color:#0b6e4f; }}
     .ticker.down {{ color:#c45c26; }}
     .ticker.flat {{ color:#5a7a86; font-size:14px; }}
+    .data-fresh {{ font-family:Arial,Helvetica,sans-serif; text-align:right; min-width:140px; }}
+    .data-fresh-label {{ margin:0 0 4px 0; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#8eb8c8; }}
+    .data-fresh-age {{ margin:0; font-size:15px; font-weight:700; line-height:1.2; }}
+    .data-fresh-age.fresh-ok {{ color:#7dcea0; }}
+    .data-fresh-age.fresh-warn {{ color:#f4d35e; }}
+    .data-fresh-age.fresh-stale {{ color:#e07a5f; }}
+    .data-fresh-age.fresh-unknown {{ color:#b7d0da; }}
+    .data-fresh-when {{ margin:4px 0 0 0; font-size:11px; color:#8eb8c8; line-height:1.3; }}
     .data-table {{ width:100%; border-collapse:collapse; font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#243036; }}
     .data-table th {{ text-align:left; padding:8px 6px; border-bottom:2px solid #d5dde3; color:#5a7a86; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; font-weight:700; }}
     .data-table td {{ padding:7px 6px; border-bottom:1px solid #e4ebef; }}
@@ -655,9 +701,22 @@ def render_html(series: dict) -> None:
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #d5dde3;">
           <tr>
             <td style="background:#1a3a4a;padding:28px 32px 24px 32px;">
-              <p style="margin:0 0 6px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#8eb8c8;">Mississippi Lake · Ontario</p>
-              <h1 style="margin:0;font-family:Georgia,serif;font-size:28px;line-height:1.25;font-weight:normal;color:#ffffff;">High Water Update for Cottagers</h1>
-              <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#b7d0da;">Updated {when} EDT · auto-refreshes hourly, but dependent on MVCA data updates</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="vertical-align:top;padding-right:16px;">
+                    <p style="margin:0 0 6px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#8eb8c8;">Mississippi Lake · Ontario</p>
+                    <h1 style="margin:0;font-family:Georgia,serif;font-size:28px;line-height:1.25;font-weight:normal;color:#ffffff;">High Water Update for Cottagers</h1>
+                    <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#b7d0da;">Updated {when} EDT · auto-refreshes hourly, but dependent on MVCA data updates</p>
+                  </td>
+                  <td style="vertical-align:middle;width:1%;">
+                    <div class="data-fresh" id="data-freshness" data-as-of="{data_as_of_iso}" title="Newest reading from lake or flow gauges">
+                      <p class="data-fresh-label">Data source</p>
+                      <p class="data-fresh-age fresh-unknown" id="data-freshness-age">Checking…</p>
+                      <p class="data-fresh-when">{data_as_of_edt}</p>
+                    </div>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           <tr>
@@ -804,6 +863,33 @@ def render_html(series: dict) -> None:
     document.addEventListener('keydown', function(e) {{
       if (e.key === 'Escape') closeChart();
     }});
+    (function updateDataFreshness() {{
+      var wrap = document.getElementById('data-freshness');
+      var ageEl = document.getElementById('data-freshness-age');
+      if (!wrap || !ageEl) return;
+      var iso = wrap.getAttribute('data-as-of') || '';
+      if (!iso) {{
+        ageEl.textContent = 'Unavailable';
+        ageEl.className = 'data-fresh-age fresh-unknown';
+        return;
+      }}
+      var then = new Date(iso);
+      if (isNaN(then.getTime())) {{
+        ageEl.textContent = 'Unavailable';
+        ageEl.className = 'data-fresh-age fresh-unknown';
+        return;
+      }}
+      var mins = Math.max(0, Math.round((Date.now() - then.getTime()) / 60000));
+      var hours = mins / 60;
+      var label;
+      if (mins < 1) label = 'Just now';
+      else if (mins < 60) label = mins + ' min ago';
+      else if (mins < 120) label = '1 hour ago';
+      else label = Math.floor(hours) + ' hours ago';
+      var cls = hours <= 1 ? 'fresh-ok' : (hours <= 4 ? 'fresh-warn' : 'fresh-stale');
+      ageEl.textContent = label;
+      ageEl.className = 'data-fresh-age ' + cls;
+    }})();
   </script>
 </body>
 </html>

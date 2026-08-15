@@ -19,6 +19,14 @@
     .ticker.up { color:#0b6e4f; }
     .ticker.down { color:#c45c26; }
     .ticker.flat { color:#5a7a86; font-size:14px; }
+    .data-fresh { font-family:Arial,Helvetica,sans-serif; text-align:right; min-width:140px; }
+    .data-fresh-label { margin:0 0 4px 0; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#8eb8c8; }
+    .data-fresh-age { margin:0; font-size:15px; font-weight:700; line-height:1.2; }
+    .data-fresh-age.fresh-ok { color:#7dcea0; }
+    .data-fresh-age.fresh-warn { color:#f4d35e; }
+    .data-fresh-age.fresh-stale { color:#e07a5f; }
+    .data-fresh-age.fresh-unknown { color:#b7d0da; }
+    .data-fresh-when { margin:4px 0 0 0; font-size:11px; color:#8eb8c8; line-height:1.3; }
     .data-table { width:100%; border-collapse:collapse; font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#243036; }
     .data-table th { text-align:left; padding:8px 6px; border-bottom:2px solid #d5dde3; color:#5a7a86; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; font-weight:700; }
     .data-table td { padding:7px 6px; border-bottom:1px solid #e4ebef; }
@@ -55,9 +63,22 @@
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #d5dde3;">
           <tr>
             <td style="background:#1a3a4a;padding:28px 32px 24px 32px;">
-              <p style="margin:0 0 6px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#8eb8c8;">Mississippi Lake · Ontario</p>
-              <h1 style="margin:0;font-family:Georgia,serif;font-size:28px;line-height:1.25;font-weight:normal;color:#ffffff;">High Water Update for Cottagers</h1>
-              <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#b7d0da;">Updated 2026-08-14 22:14 EDT · auto-refreshes hourly, but dependent on MVCA data updates</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="vertical-align:top;padding-right:16px;">
+                    <p style="margin:0 0 6px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#8eb8c8;">Mississippi Lake · Ontario</p>
+                    <h1 style="margin:0;font-family:Georgia,serif;font-size:28px;line-height:1.25;font-weight:normal;color:#ffffff;">High Water Update for Cottagers</h1>
+                    <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#b7d0da;">Updated 2026-08-14 22:17 EDT · auto-refreshes hourly, but dependent on MVCA data updates</p>
+                  </td>
+                  <td style="vertical-align:middle;width:1%;">
+                    <div class="data-fresh" id="data-freshness" data-as-of="2026-08-15T01:45:00+00:00" title="Newest reading from lake or flow gauges">
+                      <p class="data-fresh-label">Data source</p>
+                      <p class="data-fresh-age fresh-unknown" id="data-freshness-age">Checking…</p>
+                      <p class="data-fresh-when">Aug 14, 9:45 PM EDT</p>
+                    </div>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           <tr>
@@ -89,7 +110,7 @@
                 <div class="kpi">
                   <p class="kpi-label">7-day outlook</p>
                   <p class="kpi-value" style="color:#0b6e4f;">134.40<span style="font-size:13px;font-weight:600;color:#5a7a86;"> m</span></p>
-                  <div><span class="ticker flat" title="Little change vs prior day">–</span></div>
+                  <div><span class="ticker flat" title="No prior reading">–</span></div>
                   <p class="kpi-sub">-3 cm modeled change<br>not an official forecast</p>
                 </div>
                 <div class="kpi">
@@ -217,6 +238,33 @@
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') closeChart();
     });
+    (function updateDataFreshness() {
+      var wrap = document.getElementById('data-freshness');
+      var ageEl = document.getElementById('data-freshness-age');
+      if (!wrap || !ageEl) return;
+      var iso = wrap.getAttribute('data-as-of') || '';
+      if (!iso) {
+        ageEl.textContent = 'Unavailable';
+        ageEl.className = 'data-fresh-age fresh-unknown';
+        return;
+      }
+      var then = new Date(iso);
+      if (isNaN(then.getTime())) {
+        ageEl.textContent = 'Unavailable';
+        ageEl.className = 'data-fresh-age fresh-unknown';
+        return;
+      }
+      var mins = Math.max(0, Math.round((Date.now() - then.getTime()) / 60000));
+      var hours = mins / 60;
+      var label;
+      if (mins < 1) label = 'Just now';
+      else if (mins < 60) label = mins + ' min ago';
+      else if (mins < 120) label = '1 hour ago';
+      else label = Math.floor(hours) + ' hours ago';
+      var cls = hours <= 1 ? 'fresh-ok' : (hours <= 4 ? 'fresh-warn' : 'fresh-stale');
+      ageEl.textContent = label;
+      ageEl.className = 'data-fresh-age ' + cls;
+    })();
   </script>
 </body>
 </html>

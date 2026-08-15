@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 CHART_PNG = ROOT / "chart.png"
 YTD_CHART_PNG = ROOT / "ytd_chart.png"
+WATERSHED_PNG = ROOT / "watershed_profile.png"
 INDEX = ROOT / "index.html"
 CACHE = DATA / "chart_series.json"
 HISTORIC_DOY = DATA / "historic_doy_means.json"
@@ -31,6 +32,8 @@ HISTORIC_DOY = DATA / "historic_doy_means.json"
 AREA_M2 = 25e6  # Mississippi Lake ~25 km²
 CM_PER_M3S_DAY = 86400 / AREA_M2 * 100
 LAKE_TS = 1404042
+CROTCH_TS = 16468042
+DALHOUSIE_TS = 54708042
 EARLY_JULY_LEVEL = 134.10
 
 ctx = ssl.create_default_context()
@@ -101,14 +104,16 @@ def fetch_wsc_daily(stn: str, start: str, end: str) -> tuple[dict[str, float], d
     return {d: mean(v) for d, v in sorted(by.items())}, latest
 
 
-def fetch_lake_daily(frm: str, to: str) -> tuple[dict[str, float], datetime | None]:
+def fetch_lake_daily(
+    frm: str, to: str, *, ts_id: int = LAKE_TS
+) -> tuple[dict[str, float], datetime | None]:
     params = {
         "service": "kisters",
         "type": "queryServices",
         "request": "getTimeseriesValues",
         "datasource": "0",
         "format": "json",
-        "ts_id": str(LAKE_TS),
+        "ts_id": str(ts_id),
         "from": frm,
         "to": to,
     }
@@ -124,6 +129,66 @@ def fetch_lake_daily(frm: str, to: str) -> tuple[dict[str, float], datetime | No
                 if ts is not None and (latest is None or ts > latest):
                     latest = ts
     return {d: mean(v) for d, v in sorted(by.items())}, latest
+
+
+def _series_trend(daily: dict[str, float], *, days: int = 7) -> tuple[float | None, float | None]:
+    """Return (latest, change over ~days) from a daily mean series."""
+    if not daily:
+        return None, None
+    keys = sorted(daily)
+    latest = daily[keys[-1]]
+    target = (date.fromisoformat(keys[-1]) - timedelta(days=days)).isoformat()
+    prior_keys = [k for k in keys if k <= target]
+    if not prior_keys:
+        prior_keys = keys[:1]
+    prior = daily[prior_keys[-1]]
+    return latest, latest - prior
+
+
+def fetch_watershed_core(frm: str, to: str, ff: dict[str, float], ap: dict[str, float], lake: dict[str, float]) -> dict:
+    """Core chain snapshots + ~7-day trends for the profile diagram."""
+    nodes: dict[str, dict] = {}
+
+    def add_level(key: str, label: str, daily: dict[str, float], ts: datetime | None) -> None:
+        latest, delta = _series_trend(daily)
+        nodes[key] = {
+            "label": label,
+            "kind": "level",
+            "value": latest,
+            "delta_7d": delta * 100 if delta is not None else None,  # cm
+            "unit": "m",
+            "as_of_iso": ts.isoformat() if ts else "",
+        }
+
+    def add_flow(key: str, label: str, daily: dict[str, float], ts: datetime | None) -> None:
+        latest, delta = _series_trend(daily)
+        nodes[key] = {
+            "label": label,
+            "kind": "flow",
+            "value": latest,
+            "delta_7d": delta,  # m³/s
+            "unit": "m3s",
+            "as_of_iso": ts.isoformat() if ts else "",
+        }
+
+    try:
+        crotch, crotch_ts = fetch_lake_daily(frm, to, ts_id=CROTCH_TS)
+        add_level("crotch", "Crotch Lake", crotch, crotch_ts)
+    except Exception as e:
+        print(f"  Crotch Lake fetch failed: {e}")
+        nodes["crotch"] = {"label": "Crotch Lake", "kind": "level", "value": None, "delta_7d": None, "unit": "m", "as_of_iso": ""}
+
+    try:
+        dal, dal_ts = fetch_lake_daily(frm, to, ts_id=DALHOUSIE_TS)
+        add_level("dalhousie", "Dalhousie Lake", dal, dal_ts)
+    except Exception as e:
+        print(f"  Dalhousie Lake fetch failed: {e}")
+        nodes["dalhousie"] = {"label": "Dalhousie Lake", "kind": "level", "value": None, "delta_7d": None, "unit": "m", "as_of_iso": ""}
+
+    add_level("mississippi", "Mississippi Lake", lake, None)
+    add_flow("ferguson", "Ferguson’s Falls", ff, None)
+    add_flow("appleton", "Appleton", ap, None)
+    return {"watershed": nodes}
 
 
 def fetch_open_meteo_wed_rain(lat=45.14, lon=-76.15) -> dict[str, float]:
@@ -366,6 +431,16 @@ def build_series() -> dict:
     ff_iso, ff_edt = _gauge_stamp(ff_ts)
     ap_iso, ap_edt = _gauge_stamp(ap_ts)
 
+    watershed = fetch_watershed_core(frm, to, ff, ap, lake)
+    # Attach the same as-of stamps we already computed for header freshness
+    ws = watershed["watershed"]
+    if "mississippi" in ws:
+        ws["mississippi"]["as_of_iso"] = lake_iso
+    if "ferguson" in ws:
+        ws["ferguson"]["as_of_iso"] = ff_iso
+    if "appleton" in ws:
+        ws["appleton"]["as_of_iso"] = ap_iso
+
     return {
         "generated_edt": edt.strftime("%Y-%m-%d %H:%M"),
         "lake_as_of_iso": lake_iso,
@@ -396,6 +471,7 @@ def build_series() -> dict:
         "deltas": deltas,
         "rain_bump": rain_bump,
         **ytd,
+        **watershed,
         "params": {
             "k_calibrated": k,
             "effective_cm_per_m3s_day": k * CM_PER_M3S_DAY,
@@ -558,6 +634,181 @@ def render_ytd_chart(series: dict) -> bool:
         color="#6a7c84",
     )
     fig.savefig(YTD_CHART_PNG, dpi=160, bbox_inches="tight", facecolor="white")
+    plt.close()
+    return True
+
+
+def _trend_arrow(delta: float | None, *, flat: float) -> tuple[str, str]:
+    if delta is None:
+        return "–", "#5a7a86"
+    if abs(delta) < flat:
+        return "–", "#5a7a86"
+    if delta > 0:
+        return "▲", "#c45c26"
+    return "▼", "#0b6e4f"
+
+
+def render_watershed_chart(series: dict) -> bool:
+    """Great-Lakes-style elevation profile for the core Mississippi watershed chain."""
+    nodes = series.get("watershed") or {}
+    if not nodes:
+        return False
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Polygon, Rectangle
+
+    crotch = nodes.get("crotch") or {}
+    dal = nodes.get("dalhousie") or {}
+    miss = nodes.get("mississippi") or {}
+    ff = nodes.get("ferguson") or {}
+    ap = nodes.get("appleton") or {}
+
+    # Schematic surface elevations (MASL) — vertical exaggeration for readability
+    z_crotch = crotch.get("value") or 239.7
+    z_dal = dal.get("value") or 156.9
+    z_miss = miss.get("value") or 134.4
+    z_ap = z_miss - 1.2  # Appleton is downstream of Carleton Place Dam
+
+    fig, ax = plt.subplots(figsize=(11.2, 5.4))
+    ax.set_xlim(0, 12)
+    ax.set_ylim(110, 270)
+    ax.set_facecolor("#d8e8f0")
+    fig.patch.set_facecolor("white")
+
+    # Sky gradient feel via background rects
+    ax.axhspan(110, 270, color="#cfe3ee", zorder=0)
+
+    def basin(x0, x1, surface, floor, water="#3a7ca5"):
+        # land under / around
+        land_pts = [
+            (x0 - 0.15, floor - 8),
+            (x0, floor),
+            (x0 + 0.25, floor + 2),
+            (x1 - 0.25, floor + 2),
+            (x1, floor),
+            (x1 + 0.15, floor - 8),
+            (x1 + 0.15, 108),
+            (x0 - 0.15, 108),
+        ]
+        ax.add_patch(Polygon(land_pts, closed=True, facecolor="#c4b7a6", edgecolor="#8a7d6e", lw=0.8, zorder=1))
+        water_pts = [
+            (x0 + 0.05, surface),
+            (x1 - 0.05, surface),
+            (x1 - 0.2, floor + 3),
+            (x0 + 0.2, floor + 3),
+        ]
+        ax.add_patch(Polygon(water_pts, closed=True, facecolor=water, edgecolor="#1f4e79", lw=1.0, zorder=2))
+        ax.plot([x0 + 0.05, x1 - 0.05], [surface, surface], color="#1a3a4a", lw=1.6, zorder=3)
+
+    def channel(x0, x1, z_left, z_right, floor):
+        # sloping connecting reach
+        land = [(x0, floor - 6), (x1, floor - 6), (x1, 108), (x0, 108)]
+        ax.add_patch(Polygon(land, closed=True, facecolor="#c4b7a6", edgecolor="none", zorder=1))
+        water = [(x0, z_left), (x1, z_right), (x1, floor), (x0, floor)]
+        ax.add_patch(Polygon(water, closed=True, facecolor="#4a90b8", edgecolor="#1f4e79", lw=0.8, zorder=2))
+
+    def dam(x, z_top, z_bot, label):
+        ax.add_patch(Rectangle((x - 0.08, z_bot), 0.16, z_top - z_bot + 4, facecolor="#2b2b2b", zorder=4))
+        ax.text(x, z_top + 8, label, ha="center", va="bottom", fontsize=7.5, color="#1a3a4a", zorder=5)
+
+    def annotate_level(x, z, node, name):
+        val = node.get("value")
+        d7 = node.get("delta_7d")
+        arrow, color = _trend_arrow(d7, flat=0.8)
+        if val is None:
+            txt = f"{name}\n— m"
+        else:
+            dtxt = "—" if d7 is None else f"{arrow} {d7:+.0f} cm / 7d"
+            txt = f"{name}\n{val:.2f} m MASL\n{dtxt}"
+        ax.annotate(
+            txt,
+            xy=(x, z),
+            xytext=(x, min(262, z + 28)),
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            color="#1a3a4a",
+            arrowprops=dict(arrowstyle="-", color="#5a7a86", lw=0.7),
+            bbox=dict(boxstyle="round,pad=0.25", facecolor="white", edgecolor="#d5dde3", alpha=0.92),
+            zorder=6,
+        )
+        # color the trend line in a small marker note
+        if d7 is not None:
+            ax.plot([x], [z + 2], marker="o", color=color, ms=4, zorder=7)
+
+    def annotate_flow(x, z, node, name):
+        val = node.get("value")
+        d7 = node.get("delta_7d")
+        arrow, color = _trend_arrow(d7, flat=0.8)
+        if val is None:
+            txt = f"{name}\n— m³/s"
+        else:
+            dtxt = "—" if d7 is None else f"{arrow} {d7:+.1f} m³/s / 7d"
+            txt = f"{name}\n{val:.1f} m³/s\n{dtxt}"
+        ax.annotate(
+            txt,
+            xy=(x, z),
+            xytext=(x, z + 22),
+            ha="center",
+            va="bottom",
+            fontsize=8,
+            color="#1a3a4a",
+            arrowprops=dict(arrowstyle="-", color="#5a7a86", lw=0.7),
+            bbox=dict(boxstyle="round,pad=0.25", facecolor="#fff8e8", edgecolor="#ead9a8", alpha=0.95),
+            zorder=6,
+        )
+        if d7 is not None:
+            ax.plot([x], [z + 1], marker="s", color=color, ms=4, zorder=7)
+
+    # Layout: Crotch | drop | Dalhousie | river+FF | Miss Lake | dam | Appleton reach
+    basin(0.4, 2.2, z_crotch, z_crotch - 18, water="#2f6f7e")
+    dam(2.35, z_crotch, z_crotch - 14, "Crotch Dam")
+    channel(2.5, 3.5, z_crotch - 4, z_dal, z_dal - 10)
+    basin(3.5, 5.3, z_dal, z_dal - 14, water="#3a7ca5")
+    channel(5.3, 6.5, z_dal - 2, z_miss + 1, z_miss - 8)
+    basin(6.5, 9.0, z_miss, z_miss - 12, water="#1f4e79")
+    dam(9.15, z_miss, z_miss - 10, "Carleton Place Dam")
+    channel(9.3, 11.4, z_miss - 0.5, z_ap, z_ap - 8)
+
+    annotate_level(1.3, z_crotch, crotch, "Crotch Lake")
+    annotate_level(4.4, z_dal, dal, "Dalhousie Lake")
+    annotate_flow(5.9, z_miss + 4, ff, "Ferguson’s Falls\ninflow")
+    annotate_level(7.75, z_miss, miss, "Mississippi Lake")
+    annotate_flow(10.4, z_ap + 2, ap, "Appleton\noutflow")
+
+    # Flow direction
+    ax.annotate(
+        "",
+        xy=(11.5, 120),
+        xytext=(0.3, 120),
+        arrowprops=dict(arrowstyle="->", color="#5a7a86", lw=1.2),
+    )
+    ax.text(5.9, 116, "Flow direction → Ottawa River", ha="center", va="top", fontsize=8, color="#5a7a86")
+
+    ax.set_title(
+        "Mississippi watershed profile (core chain) — levels, flows & 7-day trends",
+        loc="left",
+        color="#1a3a4a",
+        fontsize=12,
+        pad=10,
+    )
+    ax.set_ylabel("Elevation (m MASL, exaggerated)")
+    ax.set_xticks([])
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+    ax.grid(True, axis="y", alpha=0.35)
+    fig.text(
+        0.01,
+        0.01,
+        "NOT TO SCALE · Schematic only. Levels from MVCA/KiWIS; flows from WSC. Trends ≈ change vs ~7 days earlier. ▲ rising · ▼ falling.",
+        fontsize=7.5,
+        color="#6a7c84",
+    )
+    fig.savefig(WATERSHED_PNG, dpi=160, bbox_inches="tight", facecolor="white")
     plt.close()
     return True
 
@@ -857,6 +1108,17 @@ def render_html(series: dict) -> None:
             </td>
           </tr>
           <tr>
+            <td style="padding:12px 32px 4px 32px;font-family:Georgia,serif;font-size:16px;color:#243036;">
+              <h2 style="margin:0 0 8px 0;font-size:20px;color:#1a3a4a;">Watershed profile</h2>
+              <p style="margin:0 0 12px 0;font-size:15px;">Core chain from Crotch Lake through Mississippi Lake to Appleton, with current levels/flows and ~7-day trends. <span style="color:#5a7a86;">Click for full screen. Not to scale.</span></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 24px 16px 24px;" align="center">
+              <img src="watershed_profile.png" width="592" class="chart-thumb" alt="Mississippi watershed elevation profile with levels, flows, and 7-day trends — click to enlarge" onclick="openChart('watershed_profile.png')" title="Click to view full screen">
+            </td>
+          </tr>
+          <tr>
             <td style="padding:16px 32px 28px 32px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#243036;">
               <p style="margin:0 0 6px 0;">• MVCA levels: <a href="https://www.mvc.on.ca/water-levels" style="color:#2f6f7e;">mvc.on.ca/water-levels</a></p>
               <p style="margin:0 0 14px 0;">• MVCA status: <a href="https://mvc.on.ca/flood-status/" style="color:#2f6f7e;">mvc.on.ca/flood-status</a> · 613-253-0006 ext. 248</p>
@@ -946,10 +1208,13 @@ def main() -> None:
     print("Rendering YTD chart…")
     if not render_ytd_chart(series):
         print("  (skipped YTD chart — no monthly data)")
+    print("Rendering watershed profile…")
+    if not render_watershed_chart(series):
+        print("  (skipped watershed profile — no node data)")
     print("Writing index.html…")
     render_html(series)
     print(f"Done. Lake={series['latest_lake']:.3f} FF={series['latest_ff']:.1f} gap={series['gap_now']:+.1f}")
-    print(f"Wrote {INDEX}, {CHART_PNG}, and {YTD_CHART_PNG}")
+    print(f"Wrote {INDEX}, {CHART_PNG}, {YTD_CHART_PNG}, and {WATERSHED_PNG}")
 
 
 if __name__ == "__main__":

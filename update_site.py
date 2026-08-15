@@ -7,6 +7,7 @@ Fetches WSC + KiWIS gauges, rebuilds projection + chart, writes index.html.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import ssl
@@ -19,6 +20,13 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from statistics import mean
 from zoneinfo import ZoneInfo
+
+
+def _asset_v(path: Path) -> str:
+    """Short content hash so browsers fetch updated chart PNGs."""
+    if not path.exists():
+        return "0"
+    return hashlib.md5(path.read_bytes()).hexdigest()[:8]
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -930,6 +938,9 @@ def render_html(series: dict) -> None:
     proj = series["proj_end_lake"]
     dcm = series["proj_change_cm"]
     when = series["generated_edt"]
+    chart_src = f"chart.png?v={_asset_v(CHART_PNG)}"
+    ytd_src = f"ytd_chart.png?v={_asset_v(YTD_CHART_PNG)}"
+    watershed_src = f"watershed_profile.png?v={_asset_v(WATERSHED_PNG)}"
     lake_as_of_iso = series.get("lake_as_of_iso") or ""
     lake_as_of_edt = series.get("lake_as_of_edt") or "unavailable"
     ff_as_of_iso = series.get("ff_as_of_iso") or ""
@@ -1063,7 +1074,7 @@ def render_html(series: dict) -> None:
 <body style="margin:0;padding:0;background:#eef2f4;font-family:Georgia,'Times New Roman',serif;">
   <div id="chart-lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Full screen chart" onclick="if(event.target===this)closeChart()">
     <button type="button" class="lightbox-close" onclick="closeChart()" aria-label="Close">Close ✕</button>
-    <img id="lightbox-img" src="chart.png" alt="Full screen chart">
+    <img id="lightbox-img" src="{chart_src}" alt="Full screen chart">
     <div class="lightbox-hint">Click outside or press Esc to close</div>
   </div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef2f4;padding:24px 12px;">
@@ -1164,7 +1175,7 @@ def render_html(series: dict) -> None:
           </tr>
           <tr>
             <td style="padding:0 24px 8px 24px;" align="center">
-              <img src="chart.png" width="592" class="chart-thumb" alt="Inflow, outflow, and lake level chart with projection — click to enlarge" onclick="openChart('chart.png')" title="Click to view full screen">
+              <img src="{chart_src}" width="592" class="chart-thumb" alt="Inflow, outflow, and lake level chart with projection — click to enlarge" onclick="openChart('{chart_src}')" title="Click to view full screen">
             </td>
           </tr>
           <tr>
@@ -1210,7 +1221,7 @@ def render_html(series: dict) -> None:
           </tr>
           <tr>
             <td style="padding:0 24px 16px 24px;" align="center">
-              <img src="ytd_chart.png" width="592" class="chart-thumb" alt="Year-to-date monthly lake level chart — click to enlarge" onclick="openChart('ytd_chart.png')" title="Click to view full screen">
+              <img src="{ytd_src}" width="592" class="chart-thumb" alt="Year-to-date monthly lake level chart — click to enlarge" onclick="openChart('{ytd_src}')" title="Click to view full screen">
             </td>
           </tr>
           <tr>
@@ -1221,7 +1232,7 @@ def render_html(series: dict) -> None:
           </tr>
           <tr>
             <td style="padding:0 24px 16px 24px;" align="center">
-              <img src="watershed_profile.png" width="592" class="chart-thumb" alt="Mississippi watershed elevation profile with levels, flows, and 7-day trends — click to enlarge" onclick="openChart('watershed_profile.png')" title="Click to view full screen">
+              <img src="{watershed_src}" width="592" class="chart-thumb" alt="Mississippi watershed elevation profile with levels, flows, and 7-day trends — click to enlarge" onclick="openChart('{watershed_src}')" title="Click to view full screen">
             </td>
           </tr>
           <tr>

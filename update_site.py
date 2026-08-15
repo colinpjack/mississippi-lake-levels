@@ -658,7 +658,8 @@ def render_watershed_chart(series: dict) -> bool:
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    from matplotlib.patches import Polygon, Rectangle
+    import numpy as np
+    from matplotlib.patches import Patch, Rectangle
 
     crotch = nodes.get("crotch") or {}
     dal = nodes.get("dalhousie") or {}
@@ -666,141 +667,246 @@ def render_watershed_chart(series: dict) -> bool:
     ff = nodes.get("ferguson") or {}
     ap = nodes.get("appleton") or {}
 
-    # Schematic surface elevations (MASL) — vertical exaggeration for readability
-    z_crotch = crotch.get("value") or 239.7
-    z_dal = dal.get("value") or 156.9
-    z_miss = miss.get("value") or 134.4
-    z_ap = z_miss - 1.2  # Appleton is downstream of Carleton Place Dam
+    z_crotch = float(crotch.get("value") or 239.7)
+    z_dal = float(dal.get("value") or 156.9)
+    z_miss = float(miss.get("value") or 134.4)
+    z_ap = z_miss - 1.2
 
-    fig, ax = plt.subplots(figsize=(11.2, 5.4))
+    fig, ax = plt.subplots(figsize=(11.8, 6.6))
     ax.set_xlim(0, 12)
-    ax.set_ylim(110, 270)
-    ax.set_facecolor("#d8e8f0")
+    ax.set_ylim(108, 292)
+    ax.set_facecolor("#d9eaf3")
     fig.patch.set_facecolor("white")
+    ax.axhspan(108, 292, color="#d0e6f1", zorder=0)
 
-    # Sky gradient feel via background rects
-    ax.axhspan(110, 270, color="#cfe3ee", zorder=0)
+    def _ease(t):
+        t = np.clip(t, 0, 1)
+        return t * t * (3 - 2 * t)
 
-    def basin(x0, x1, surface, floor, water="#3a7ca5"):
-        # land under / around
-        land_pts = [
-            (x0 - 0.15, floor - 8),
-            (x0, floor),
-            (x0 + 0.25, floor + 2),
-            (x1 - 0.25, floor + 2),
-            (x1, floor),
-            (x1 + 0.15, floor - 8),
-            (x1 + 0.15, 108),
-            (x0 - 0.15, 108),
-        ]
-        ax.add_patch(Polygon(land_pts, closed=True, facecolor="#c4b7a6", edgecolor="#8a7d6e", lw=0.8, zorder=1))
-        water_pts = [
-            (x0 + 0.05, surface),
-            (x1 - 0.05, surface),
-            (x1 - 0.2, floor + 3),
-            (x0 + 0.2, floor + 3),
-        ]
-        ax.add_patch(Polygon(water_pts, closed=True, facecolor=water, edgecolor="#1f4e79", lw=1.0, zorder=2))
-        ax.plot([x0 + 0.05, x1 - 0.05], [surface, surface], color="#1a3a4a", lw=1.6, zorder=3)
+    def _bowl_depth(t, depth):
+        # t in [-1,1] across a lake span
+        return depth * (1.0 - 0.9 * t * t)
 
-    def channel(x0, x1, z_left, z_right, floor):
-        # sloping connecting reach
-        land = [(x0, floor - 6), (x1, floor - 6), (x1, 108), (x0, 108)]
-        ax.add_patch(Polygon(land, closed=True, facecolor="#c4b7a6", edgecolor="none", zorder=1))
-        water = [(x0, z_left), (x1, z_right), (x1, floor), (x0, floor)]
-        ax.add_patch(Polygon(water, closed=True, facecolor="#4a90b8", edgecolor="#1f4e79", lw=0.8, zorder=2))
+    # Key x stations for a continuous profile
+    # Crotch lake, dam, drop, Dalhousie, river, Miss lake, dam, Appleton reach
+    xs = np.linspace(0.2, 11.6, 900)
+    surface = np.zeros_like(xs)
+    floor = np.zeros_like(xs)
+    kind = np.full(xs.shape, "river", dtype=object)  # lake | river
 
-    def dam(x, z_top, z_bot, label):
-        ax.add_patch(Rectangle((x - 0.08, z_bot), 0.16, z_top - z_bot + 4, facecolor="#2b2b2b", zorder=4))
-        ax.text(x, z_top + 8, label, ha="center", va="bottom", fontsize=7.5, color="#1a3a4a", zorder=5)
+    def set_span(x0, x1, fn_surface, fn_floor, k):
+        m = (xs >= x0) & (xs <= x1)
+        if not np.any(m):
+            return
+        t = (xs[m] - x0) / max(x1 - x0, 1e-9)
+        surface[m] = fn_surface(t)
+        floor[m] = fn_floor(t)
+        kind[m] = k
 
-    def annotate_level(x, z, node, name):
+    # Crotch Lake bowl
+    set_span(
+        0.35,
+        2.15,
+        lambda t: np.full_like(t, z_crotch),
+        lambda t: z_crotch - _bowl_depth(2 * t - 1, 17),
+        "lake",
+    )
+    # Drop after Crotch Dam
+    set_span(
+        2.15,
+        3.40,
+        lambda t: z_crotch + (z_dal - z_crotch) * _ease(t),
+        lambda t: (z_crotch + (z_dal - z_crotch) * _ease(t)) - (10 - 2 * _ease(t)),
+        "river",
+    )
+    # Dalhousie Lake
+    set_span(
+        3.40,
+        5.20,
+        lambda t: np.full_like(t, z_dal),
+        lambda t: z_dal - _bowl_depth(2 * t - 1, 13),
+        "lake",
+    )
+    # River past Ferguson’s Falls into Mississippi Lake
+    set_span(
+        5.20,
+        6.55,
+        lambda t: z_dal + (z_miss - z_dal) * _ease(t),
+        lambda t: (z_dal + (z_miss - z_dal) * _ease(t)) - 8,
+        "river",
+    )
+    # Mississippi Lake
+    set_span(
+        6.55,
+        8.95,
+        lambda t: np.full_like(t, z_miss),
+        lambda t: z_miss - _bowl_depth(2 * t - 1, 11),
+        "lake",
+    )
+    # Downstream of Carleton Place Dam toward Appleton
+    set_span(
+        8.95,
+        11.50,
+        lambda t: z_miss + (z_ap - z_miss) * _ease(t),
+        lambda t: (z_miss + (z_ap - z_miss) * _ease(t)) - 7,
+        "river",
+    )
+
+    # Smooth tiny kinks at segment joins with a light rolling average
+    kernel = np.array([1, 2, 3, 2, 1], dtype=float)
+    kernel /= kernel.sum()
+    surface = np.convolve(surface, kernel, mode="same")
+    floor = np.convolve(floor, kernel, mode="same")
+    # keep a minimum water column
+    floor = np.minimum(floor, surface - 4.5)
+
+    # Continuous land mass under the whole profile
+    land_x = np.concatenate([[xs[0]], xs, [xs[-1]], [xs[0]]])
+    land_y = np.concatenate([[106], floor, [106], [106]])
+    ax.fill(land_x, land_y, color="#cbb79f", zorder=1)
+    ax.plot(xs, floor, color="#9a8874", lw=0.9, alpha=0.65, solid_capstyle="round", zorder=2)
+
+    # Water fills by kind (lake vs river colors) but still curved
+    def fill_kind(target, color, alpha=0.95):
+        m = kind == target
+        if not np.any(m):
+            return
+        # split into contiguous runs
+        idx = np.where(m)[0]
+        cuts = np.where(np.diff(idx) > 1)[0]
+        starts = np.r_[idx[0], idx[cuts + 1]]
+        ends = np.r_[idx[cuts], idx[-1]]
+        for a, b in zip(starts, ends):
+            seg_x = xs[a : b + 1]
+            seg_s = surface[a : b + 1]
+            seg_f = floor[a : b + 1]
+            wx = np.concatenate([seg_x, seg_x[::-1]])
+            wy = np.concatenate([seg_s, seg_f[::-1]])
+            ax.fill(wx, wy, color=color, alpha=alpha, zorder=3)
+            ax.plot(seg_x, seg_s, color="#16384a", lw=1.35, solid_capstyle="round", zorder=4)
+
+    fill_kind("lake", "#2f6f7e")
+    fill_kind("river", "#5ba3c9", alpha=0.9)
+
+    def draw_dam(x, z_top, height=16, label="", label_side=1):
+        ax.add_patch(
+            Rectangle(
+                (x - 0.06, z_top - height),
+                0.12,
+                height + 2.5,
+                facecolor="#2b2b2b",
+                edgecolor="#111",
+                lw=0.35,
+                zorder=5,
+                clip_on=False,
+            )
+        )
+        if label:
+            ax.text(
+                x + 0.18 * label_side,
+                z_top - height * 0.35,
+                label,
+                ha="left" if label_side > 0 else "right",
+                va="center",
+                fontsize=7,
+                color="#3a4a52",
+                zorder=6,
+                bbox=dict(boxstyle="round,pad=0.2", facecolor="white", edgecolor="#d5dde3", alpha=0.9),
+            )
+
+    draw_dam(2.15, z_crotch, height=17, label="Crotch Dam", label_side=1)
+    draw_dam(8.95, z_miss, height=13, label="Carleton Place Dam", label_side=1)
+
+    def label_box(x, z, node, name, kind_label, x_text):
         val = node.get("value")
         d7 = node.get("delta_7d")
-        arrow, color = _trend_arrow(d7, flat=0.8)
-        if val is None:
-            txt = f"{name}\n— m"
+        arrow, tcolor = _trend_arrow(d7, flat=0.8)
+        if kind_label == "level":
+            if val is None:
+                body = f"{name}\n— m MASL"
+            else:
+                trend = "—" if d7 is None else f"{arrow} {d7:+.0f} cm / 7d"
+                body = f"{name}\n{val:.2f} m MASL\n{trend}"
+            face, edge, marker = "#ffffff", "#cfd8dd", "o"
         else:
-            dtxt = "—" if d7 is None else f"{arrow} {d7:+.0f} cm / 7d"
-            txt = f"{name}\n{val:.2f} m MASL\n{dtxt}"
+            if val is None:
+                body = f"{name}\n— m³/s"
+            else:
+                trend = "—" if d7 is None else f"{arrow} {d7:+.1f} m³/s / 7d"
+                body = f"{name}\n{val:.1f} m³/s\n{trend}"
+            face, edge, marker = "#fff8e8", "#ead9a8", "s"
         ax.annotate(
-            txt,
+            body,
             xy=(x, z),
-            xytext=(x, min(262, z + 28)),
+            xytext=(x_text, 272),
             ha="center",
-            va="bottom",
+            va="top",
             fontsize=8,
             color="#1a3a4a",
-            arrowprops=dict(arrowstyle="-", color="#5a7a86", lw=0.7),
-            bbox=dict(boxstyle="round,pad=0.25", facecolor="white", edgecolor="#d5dde3", alpha=0.92),
-            zorder=6,
+            linespacing=1.45,
+            arrowprops=dict(arrowstyle="-", color="#7a8f99", lw=0.8, shrinkA=4, shrinkB=5),
+            bbox=dict(boxstyle="round,pad=0.45", facecolor=face, edgecolor=edge, alpha=0.97),
+            zorder=7,
+            clip_on=False,
         )
-        # color the trend line in a small marker note
-        if d7 is not None:
-            ax.plot([x], [z + 2], marker="o", color=color, ms=4, zorder=7)
-
-    def annotate_flow(x, z, node, name):
-        val = node.get("value")
-        d7 = node.get("delta_7d")
-        arrow, color = _trend_arrow(d7, flat=0.8)
-        if val is None:
-            txt = f"{name}\n— m³/s"
-        else:
-            dtxt = "—" if d7 is None else f"{arrow} {d7:+.1f} m³/s / 7d"
-            txt = f"{name}\n{val:.1f} m³/s\n{dtxt}"
-        ax.annotate(
-            txt,
-            xy=(x, z),
-            xytext=(x, z + 22),
-            ha="center",
-            va="bottom",
-            fontsize=8,
-            color="#1a3a4a",
-            arrowprops=dict(arrowstyle="-", color="#5a7a86", lw=0.7),
-            bbox=dict(boxstyle="round,pad=0.25", facecolor="#fff8e8", edgecolor="#ead9a8", alpha=0.95),
-            zorder=6,
+        ax.plot(
+            [x],
+            [z + 1.2],
+            marker=marker,
+            color=tcolor,
+            ms=5.5,
+            zorder=8,
+            markeredgecolor="white",
+            markeredgewidth=0.7,
         )
-        if d7 is not None:
-            ax.plot([x], [z + 1], marker="s", color=color, ms=4, zorder=7)
 
-    # Layout: Crotch | drop | Dalhousie | river+FF | Miss Lake | dam | Appleton reach
-    basin(0.4, 2.2, z_crotch, z_crotch - 18, water="#2f6f7e")
-    dam(2.35, z_crotch, z_crotch - 14, "Crotch Dam")
-    channel(2.5, 3.5, z_crotch - 4, z_dal, z_dal - 10)
-    basin(3.5, 5.3, z_dal, z_dal - 14, water="#3a7ca5")
-    channel(5.3, 6.5, z_dal - 2, z_miss + 1, z_miss - 8)
-    basin(6.5, 9.0, z_miss, z_miss - 12, water="#1f4e79")
-    dam(9.15, z_miss, z_miss - 10, "Carleton Place Dam")
-    channel(9.3, 11.4, z_miss - 0.5, z_ap, z_ap - 8)
+    # Even label columns with extra horizontal breathing room
+    label_box(1.25, z_crotch, crotch, "Crotch Lake", "level", 1.15)
+    label_box(4.30, z_dal, dal, "Dalhousie Lake", "level", 3.55)
+    label_box(5.85, (z_dal + z_miss) / 2, ff, "Ferguson’s Falls\ninflow", "flow", 5.85)
+    label_box(7.75, z_miss, miss, "Mississippi Lake", "level", 8.05)
+    label_box(10.20, z_ap, ap, "Appleton\noutflow", "flow", 10.45)
 
-    annotate_level(1.3, z_crotch, crotch, "Crotch Lake")
-    annotate_level(4.4, z_dal, dal, "Dalhousie Lake")
-    annotate_flow(5.9, z_miss + 4, ff, "Ferguson’s Falls\ninflow")
-    annotate_level(7.75, z_miss, miss, "Mississippi Lake")
-    annotate_flow(10.4, z_ap + 2, ap, "Appleton\noutflow")
-
-    # Flow direction
     ax.annotate(
         "",
-        xy=(11.5, 120),
-        xytext=(0.3, 120),
+        xy=(11.55, 118),
+        xytext=(0.25, 118),
         arrowprops=dict(arrowstyle="->", color="#5a7a86", lw=1.2),
     )
-    ax.text(5.9, 116, "Flow direction → Ottawa River", ha="center", va="top", fontsize=8, color="#5a7a86")
+    ax.text(5.9, 114.5, "Flow direction → Ottawa River", ha="center", va="top", fontsize=8, color="#5a7a86")
+
+    legend_handles = [
+        Patch(facecolor="#2f6f7e", edgecolor="#1f4e79", label="Lake"),
+        Patch(facecolor="#5ba3c9", edgecolor="#1f4e79", label="River / channel"),
+        Patch(facecolor="#2b2b2b", edgecolor="#111111", label="Dam"),
+    ]
+    leg = ax.legend(
+        handles=legend_handles,
+        loc="lower right",
+        bbox_to_anchor=(0.995, 0.145),
+        fontsize=8.5,
+        frameon=True,
+        fancybox=True,
+        framealpha=0.96,
+        edgecolor="#d5dde3",
+        title="Legend",
+    )
+    leg.get_title().set_fontsize(8.5)
+    leg.get_title().set_color("#1a3a4a")
 
     ax.set_title(
         "Mississippi watershed profile (core chain) — levels, flows & 7-day trends",
         loc="left",
         color="#1a3a4a",
         fontsize=12,
-        pad=10,
+        pad=14,
     )
     ax.set_ylabel("Elevation (m MASL, exaggerated)")
     ax.set_xticks([])
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.spines["bottom"].set_visible(False)
-    ax.grid(True, axis="y", alpha=0.35)
+    ax.grid(True, axis="y", alpha=0.28)
     fig.text(
         0.01,
         0.01,
@@ -808,7 +914,7 @@ def render_watershed_chart(series: dict) -> bool:
         fontsize=7.5,
         color="#6a7c84",
     )
-    fig.savefig(WATERSHED_PNG, dpi=160, bbox_inches="tight", facecolor="white")
+    fig.savefig(WATERSHED_PNG, dpi=170, bbox_inches="tight", facecolor="white")
     plt.close()
     return True
 

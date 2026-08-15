@@ -354,19 +354,26 @@ def build_series() -> dict:
         "outlook_m": outlook_delta,
     }
     ytd = fetch_ytd_monthly(today.year, today)
-    gauge_times = [t for t in (lake_ts, ff_ts, ap_ts) if t is not None]
-    data_as_of = max(gauge_times) if gauge_times else None
-    data_as_of_iso = data_as_of.isoformat() if data_as_of else ""
-    if data_as_of:
-        local = data_as_of.astimezone(ZoneInfo("America/Toronto"))
-        data_as_of_edt = f"{local.strftime('%b')} {local.day}, {local.strftime('%I:%M %p').lstrip('0')} EDT"
-    else:
-        data_as_of_edt = "unavailable"
+
+    def _gauge_stamp(ts: datetime | None) -> tuple[str, str]:
+        if ts is None:
+            return "", "unavailable"
+        local = ts.astimezone(ZoneInfo("America/Toronto"))
+        label = f"{local.strftime('%b')} {local.day}, {local.strftime('%I:%M %p').lstrip('0')} EDT"
+        return ts.isoformat(), label
+
+    lake_iso, lake_edt = _gauge_stamp(lake_ts)
+    ff_iso, ff_edt = _gauge_stamp(ff_ts)
+    ap_iso, ap_edt = _gauge_stamp(ap_ts)
 
     return {
         "generated_edt": edt.strftime("%Y-%m-%d %H:%M"),
-        "data_as_of_iso": data_as_of_iso,
-        "data_as_of_edt": data_as_of_edt,
+        "lake_as_of_iso": lake_iso,
+        "lake_as_of_edt": lake_edt,
+        "ff_as_of_iso": ff_iso,
+        "ff_as_of_edt": ff_edt,
+        "ap_as_of_iso": ap_iso,
+        "ap_as_of_edt": ap_edt,
         "hist_days": days,
         "hist_ff": hist_ff,
         "hist_ap": hist_ap,
@@ -566,8 +573,12 @@ def render_html(series: dict) -> None:
     proj = series["proj_end_lake"]
     dcm = series["proj_change_cm"]
     when = series["generated_edt"]
-    data_as_of_iso = series.get("data_as_of_iso") or ""
-    data_as_of_edt = series.get("data_as_of_edt") or "unavailable"
+    lake_as_of_iso = series.get("lake_as_of_iso") or ""
+    lake_as_of_edt = series.get("lake_as_of_edt") or "unavailable"
+    ff_as_of_iso = series.get("ff_as_of_iso") or ""
+    ff_as_of_edt = series.get("ff_as_of_edt") or "unavailable"
+    ap_as_of_iso = series.get("ap_as_of_iso") or ""
+    ap_as_of_edt = series.get("ap_as_of_edt") or "unavailable"
     deltas = series.get("deltas") or {}
     # Date label for the glance header — prefer latest observed gauge day
     try:
@@ -657,14 +668,17 @@ def render_html(series: dict) -> None:
     .ticker.up {{ color:#0b6e4f; }}
     .ticker.down {{ color:#c45c26; }}
     .ticker.flat {{ color:#5a7a86; font-size:14px; }}
-    .data-fresh {{ font-family:Arial,Helvetica,sans-serif; text-align:right; min-width:140px; }}
-    .data-fresh-label {{ margin:0 0 4px 0; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#8eb8c8; }}
-    .data-fresh-age {{ margin:0; font-size:15px; font-weight:700; line-height:1.2; }}
-    .data-fresh-age.fresh-ok {{ color:#7dcea0; }}
-    .data-fresh-age.fresh-warn {{ color:#f4d35e; }}
-    .data-fresh-age.fresh-stale {{ color:#e07a5f; }}
-    .data-fresh-age.fresh-unknown {{ color:#b7d0da; }}
-    .data-fresh-when {{ margin:4px 0 0 0; font-size:11px; color:#8eb8c8; line-height:1.3; }}
+    .data-fresh {{ font-family:Arial,Helvetica,sans-serif; text-align:right; min-width:168px; }}
+    .data-fresh-heading {{ margin:0 0 8px 0; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:#8eb8c8; }}
+    .gauge-fresh {{ margin:0 0 8px 0; }}
+    .gauge-fresh:last-child {{ margin-bottom:0; }}
+    .gauge-fresh-name {{ margin:0; font-size:10px; letter-spacing:0.04em; text-transform:uppercase; color:#8eb8c8; }}
+    .gauge-fresh-age {{ margin:2px 0 0 0; font-size:13px; font-weight:700; line-height:1.2; }}
+    .gauge-fresh-age.fresh-ok {{ color:#7dcea0; }}
+    .gauge-fresh-age.fresh-warn {{ color:#f4d35e; }}
+    .gauge-fresh-age.fresh-stale {{ color:#e07a5f; }}
+    .gauge-fresh-age.fresh-unknown {{ color:#b7d0da; }}
+    .gauge-fresh-when {{ margin:2px 0 0 0; font-size:10px; color:#7a96a3; line-height:1.25; }}
     .data-table {{ width:100%; border-collapse:collapse; font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#243036; }}
     .data-table th {{ text-align:left; padding:8px 6px; border-bottom:2px solid #d5dde3; color:#5a7a86; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; font-weight:700; }}
     .data-table td {{ padding:7px 6px; border-bottom:1px solid #e4ebef; }}
@@ -709,10 +723,23 @@ def render_html(series: dict) -> None:
                     <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#b7d0da;">Updated {when} EDT · auto-refreshes hourly, but dependent on MVCA data updates</p>
                   </td>
                   <td style="vertical-align:middle;width:1%;">
-                    <div class="data-fresh" id="data-freshness" data-as-of="{data_as_of_iso}" title="Newest reading from lake or flow gauges">
-                      <p class="data-fresh-label">Data source</p>
-                      <p class="data-fresh-age fresh-unknown" id="data-freshness-age">Checking…</p>
-                      <p class="data-fresh-when">{data_as_of_edt}</p>
+                    <div class="data-fresh" title="How fresh each gauge reading is">
+                      <p class="data-fresh-heading">Gauge freshness</p>
+                      <div class="gauge-fresh" data-as-of="{lake_as_of_iso}">
+                        <p class="gauge-fresh-name">Lake level</p>
+                        <p class="gauge-fresh-age fresh-unknown">Checking…</p>
+                        <p class="gauge-fresh-when">{lake_as_of_edt}</p>
+                      </div>
+                      <div class="gauge-fresh" data-as-of="{ff_as_of_iso}">
+                        <p class="gauge-fresh-name">Ferguson’s Falls</p>
+                        <p class="gauge-fresh-age fresh-unknown">Checking…</p>
+                        <p class="gauge-fresh-when">{ff_as_of_edt}</p>
+                      </div>
+                      <div class="gauge-fresh" data-as-of="{ap_as_of_iso}">
+                        <p class="gauge-fresh-name">Appleton</p>
+                        <p class="gauge-fresh-age fresh-unknown">Checking…</p>
+                        <p class="gauge-fresh-when">{ap_as_of_edt}</p>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -863,32 +890,37 @@ def render_html(series: dict) -> None:
     document.addEventListener('keydown', function(e) {{
       if (e.key === 'Escape') closeChart();
     }});
-    (function updateDataFreshness() {{
-      var wrap = document.getElementById('data-freshness');
-      var ageEl = document.getElementById('data-freshness-age');
-      if (!wrap || !ageEl) return;
-      var iso = wrap.getAttribute('data-as-of') || '';
-      if (!iso) {{
-        ageEl.textContent = 'Unavailable';
-        ageEl.className = 'data-fresh-age fresh-unknown';
-        return;
+    (function updateGaugeFreshness() {{
+      function setAge(el, iso) {{
+        if (!iso) {{
+          el.textContent = 'Unavailable';
+          el.className = 'gauge-fresh-age fresh-unknown';
+          return;
+        }}
+        var then = new Date(iso);
+        if (isNaN(then.getTime())) {{
+          el.textContent = 'Unavailable';
+          el.className = 'gauge-fresh-age fresh-unknown';
+          return;
+        }}
+        var mins = Math.max(0, Math.round((Date.now() - then.getTime()) / 60000));
+        var hours = mins / 60;
+        var label;
+        if (mins < 1) label = 'Just now';
+        else if (mins < 60) label = mins + ' min ago';
+        else if (mins < 120) label = '1 hour ago';
+        else label = Math.floor(hours) + ' hours ago';
+        var cls = hours <= 1 ? 'fresh-ok' : (hours <= 4 ? 'fresh-warn' : 'fresh-stale');
+        el.textContent = label;
+        el.className = 'gauge-fresh-age ' + cls;
       }}
-      var then = new Date(iso);
-      if (isNaN(then.getTime())) {{
-        ageEl.textContent = 'Unavailable';
-        ageEl.className = 'data-fresh-age fresh-unknown';
-        return;
+      var nodes = document.querySelectorAll('.gauge-fresh');
+      for (var i = 0; i < nodes.length; i++) {{
+        var wrap = nodes[i];
+        var ageEl = wrap.querySelector('.gauge-fresh-age');
+        if (!ageEl) continue;
+        setAge(ageEl, wrap.getAttribute('data-as-of') || '');
       }}
-      var mins = Math.max(0, Math.round((Date.now() - then.getTime()) / 60000));
-      var hours = mins / 60;
-      var label;
-      if (mins < 1) label = 'Just now';
-      else if (mins < 60) label = mins + ' min ago';
-      else if (mins < 120) label = '1 hour ago';
-      else label = Math.floor(hours) + ' hours ago';
-      var cls = hours <= 1 ? 'fresh-ok' : (hours <= 4 ? 'fresh-warn' : 'fresh-stale');
-      ageEl.textContent = label;
-      ageEl.className = 'data-fresh-age ' + cls;
     }})();
   </script>
 </body>

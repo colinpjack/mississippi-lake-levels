@@ -1,5 +1,5 @@
 {
-  "generated_edt": "2026-08-15 13:03",
+  "generated_edt": "2026-08-15 13:16",
   "lake_as_of_iso": "2026-08-15T15:00:00+00:00",
   "lake_as_of_edt": "Aug 15, 11:00 AM EDT",
   "ff_as_of_iso": "2026-08-15T16:35:00+00:00",
@@ -111,7 +111,7 @@
     "ap": -2.8646245874587493,
     "gap": 0.5284023652365235,
     "historic_avg_m": -0.0010000000000047748,
-    "outlook_m": 1.5221369324081024e-05
+    "outlook_m": 0.0
   },
   "rain_bump": {
     "2026-08-19": 9.04
@@ -151,18 +151,18 @@
     "crotch": {
       "label": "Crotch Lake",
       "kind": "level",
-      "value": 239.6715,
-      "delta_7d": -9.577999999999065,
+      "value": 239.67069230769232,
+      "delta_7d": -9.658769230767916,
       "unit": "m",
-      "as_of_iso": "2026-08-15T16:03:25+00:00"
+      "as_of_iso": "2026-08-15T17:03:25+00:00"
     },
     "dalhousie": {
       "label": "Dalhousie Lake",
       "kind": "level",
-      "value": 156.90828346456692,
-      "delta_7d": -12.581375765529401,
+      "value": 156.90814388489207,
+      "delta_7d": -12.595333733014513,
       "unit": "m",
-      "as_of_iso": "2026-08-15T15:30:00+00:00"
+      "as_of_iso": "2026-08-15T16:30:00+00:00"
     },
     "mississippi": {
       "label": "Mississippi Lake",
@@ -193,18 +193,18 @@
     "crotch": {
       "label": "Crotch Lake",
       "kind": "level",
-      "value": 239.6715,
-      "delta_7d": -9.577999999999065,
+      "value": 239.67069230769232,
+      "delta_7d": -9.658769230767916,
       "unit": "m",
-      "as_of_iso": "2026-08-15T16:03:25+00:00"
+      "as_of_iso": "2026-08-15T17:03:25+00:00"
     },
     "dalhousie": {
       "label": "Dalhousie Lake",
       "kind": "level",
-      "value": 156.90828346456692,
-      "delta_7d": -12.581375765529401,
+      "value": 156.90814388489207,
+      "delta_7d": -12.595333733014513,
       "unit": "m",
-      "as_of_iso": "2026-08-15T15:30:00+00:00"
+      "as_of_iso": "2026-08-15T16:30:00+00:00"
     },
     "mississippi": {
       "label": "Mississippi Lake",
@@ -348,15 +348,15 @@
       "value": 161.81,
       "delta_7d": -5.229166666666174,
       "unit": "m",
-      "as_of_iso": "2026-08-15T14:00:00+00:00"
+      "as_of_iso": "2026-08-15T16:30:00+00:00"
     },
     "lanark": {
       "label": "Lanark",
       "kind": "level",
-      "value": 144.15353846153846,
-      "delta_7d": -18.333653846153197,
+      "value": 144.1532394366197,
+      "delta_7d": -18.36355633802782,
       "unit": "m",
-      "as_of_iso": "2026-08-15T15:40:00+00:00"
+      "as_of_iso": "2026-08-15T16:40:00+00:00"
     },
     "carleton": {
       "label": "Carleton Place",

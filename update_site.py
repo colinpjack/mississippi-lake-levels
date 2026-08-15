@@ -1107,12 +1107,12 @@ def render_watershed_full_chart(series: dict) -> bool:
     z_galetta = z_miss - 40.0
     z_ottawa = 70.0
 
-    fig, ax = plt.subplots(figsize=(15.5, 7.4))
+    fig, ax = plt.subplots(figsize=(15.5, 7.8))
     ax.set_xlim(0, 22.2)
-    ax.set_ylim(55, 355)
+    ax.set_ylim(18, 355)
     ax.set_facecolor("#d9eaf3")
     fig.patch.set_facecolor("white")
-    ax.axhspan(55, 355, color="#d0e6f1", zorder=0)
+    ax.axhspan(18, 355, color="#d0e6f1", zorder=0)
 
     def _ease(t):
         t = np.clip(t, 0, 1)
@@ -1213,7 +1213,7 @@ def render_watershed_full_chart(series: dict) -> bool:
     fill_kind("lake", "#2f6f7e")
     fill_kind("river", "#5ba3c9", alpha=0.9)
 
-    def draw_dam(x, z_top, height=12, label="", label_side=1, fontsize=6.2):
+    def draw_dam(x, z_top, height=12):
         ax.add_patch(
             Rectangle(
                 (x - 0.045, z_top - height),
@@ -1226,50 +1226,76 @@ def render_watershed_full_chart(series: dict) -> bool:
                 clip_on=False,
             )
         )
-        if label:
-            ax.text(
-                x + 0.12 * label_side,
-                z_top - height * 0.35,
-                label,
-                ha="left" if label_side > 0 else "right",
-                va="center",
-                fontsize=fontsize,
-                color="#3a4a52",
-                zorder=6,
-                rotation=0,
-                bbox=dict(boxstyle="round,pad=0.15", facecolor="white", edgecolor="#d5dde3", alpha=0.9),
-            )
+        # Anchor leaders on the dam crest (top of bar)
+        return x, z_top
 
-    # Main-stem dams / generating stations
-    draw_dam(1.35, z_shab, height=12, label="Shabomeka Dam")
-    draw_dam(3.35, z_maz, height=12, label="Mazinaw Dam")
-    draw_dam(5.45, z_kash, height=11, label="Kashwakamak Dam")
-    draw_dam(7.45, z_gull, height=10, label="Big Gull Dam")
-    draw_dam(8.20, z_farm, height=9, label="Farm Dam")
-    draw_dam(9.55, z_crotch, height=15, label="Crotch Dam (OPG)")
-    draw_dam(10.55, (z_crotch + z_stump) / 2, height=10, label="High Falls GS")
-    draw_dam(16.15, z_miss, height=11, label="Carleton Place Dam")
-    draw_dam(17.05, z_ap, height=8, label="Appleton GS")
-    draw_dam(17.85, (z_ap + z_almonte) / 2, height=7, label="Enerdu GS")
-    draw_dam(18.55, z_almonte, height=8, label="Almonte GS")
-    draw_dam(20.00, z_galetta, height=9, label="Galetta GS")
+    def dam_lead(x_dam, z_dam, text, x_text, y_text, *, fontsize=5.6, ha="left", va="bottom"):
+        """Angled leader from dam crest to label (usually above-right, lead down-left)."""
+        ax.annotate(
+            text,
+            xy=(x_dam, z_dam),
+            xytext=(x_text, y_text),
+            ha=ha,
+            va=va,
+            fontsize=fontsize,
+            color="#3a4a52",
+            arrowprops=dict(
+                arrowstyle="-",
+                color="#8a9aa3",
+                lw=0.65,
+                shrinkA=2,
+                shrinkB=2,
+                connectionstyle="arc3,rad=0",
+            ),
+            bbox=dict(boxstyle="round,pad=0.12", facecolor="white", edgecolor="#d5dde3", alpha=0.95),
+            zorder=6,
+            clip_on=False,
+        )
 
-    # Tributary / side-reservoir dams (schematic joins) — compact ticks
+    # Main-stem dam bars
+    d_shab = draw_dam(1.35, z_shab, height=12)
+    d_maz = draw_dam(3.35, z_maz, height=12)
+    d_kash = draw_dam(5.45, z_kash, height=11)
+    d_gull = draw_dam(7.45, z_gull, height=10)
+    d_farm = draw_dam(8.20, z_farm, height=9)
+    d_crotch = draw_dam(9.55, z_crotch, height=15)
+    z_hf = (z_crotch + z_stump) / 2
+    d_hf = draw_dam(10.55, z_hf, height=10)
+    d_cp = draw_dam(16.15, z_miss, height=11)
+    d_apgs = draw_dam(17.05, z_ap, height=8)
+    d_enerdu = draw_dam(17.85, (z_ap + z_almonte) / 2, height=7)
+    d_almonte = draw_dam(18.55, z_almonte, height=8)
+    d_galetta = draw_dam(20.00, z_galetta, height=9)
+
+    # Dam labels — above-right of crests, short down-left leads (per markup)
+    dam_lead(*d_shab, "Shabomeka Dam", 1.70, 328)
+    dam_lead(*d_maz, "Mazinaw Dam", 3.50, 282)
+    dam_lead(*d_kash, "Kashwakamak Dam", 5.95, 272)
+    dam_lead(*d_gull, "Big Gull Dam", 7.90, 268)
+    dam_lead(*d_farm, "Farm Dam", 8.85, 275, fontsize=5.3)
+    dam_lead(*d_crotch, "Crotch Dam (OPG)", 9.55, 258, ha="center")
+    dam_lead(*d_hf, "High Falls GS", 11.15, 248)
+    dam_lead(*d_cp, "Carleton Place Dam", 15.45, 155, fontsize=5.3, ha="right")
+    dam_lead(*d_apgs, "Appleton GS", 16.50, 155, fontsize=5.3)
+    dam_lead(*d_enerdu, "Enerdu GS", 17.85, 175, fontsize=5.3)
+    dam_lead(*d_almonte, "Almonte GS", 19.20, 148, fontsize=5.3)
+    dam_lead(*d_galetta, "Galetta GS", 21.35, 120, fontsize=5.3)
+
+    # Side dams — same above-right pattern; Summit tucked left to clear Mosque
     side_dams = [
-        (0.50, z_mosque, "Mosque"),
-        (0.90, z_summit, "Summit"),
-        (1.70, z_palm, "Palmerston"),
-        (2.50, z_can, "Canonto"),
-        (4.80, z_missag, "Mississagagon"),
-        (6.80, z_pine, "Pine"),
-        (7.10, z_malc, "Malcolm"),
-        (12.00, z_widow, "Widow"),
-        (12.70, (z_widow + z_lanark) / 2, "Bennett"),
-        (13.10, z_lanark, "Lanark"),
-        (14.10, z_clay, "Clayton"),
+        (0.50, z_mosque, "Mosque Dam", 1.35, 340, "left"),
+        (0.90, z_summit, "Summit Dam", 1.05, 316, "left"),
+        (1.70, z_palm, "Palmerston Dam", 3.05, 303, "left"),
+        (2.50, z_can, "Canonto Dam", 2.90, 280, "left"),
+        (4.80, z_missag, "Mississagagon Dam", 4.55, 278, "right"),
+        (6.80, z_pine, "Pine Dam", 7.40, 278, "left"),
+        (7.20, z_malc, "Malcolm Dam", 7.90, 288, "left"),
+        (12.00, z_widow, "Widow Dam", 12.55, 218, "left"),
+        (12.75, (z_widow + z_lanark) / 2, "Bennett Dam", 13.90, 188, "left"),
+        (13.15, z_lanark, "Lanark Dam", 14.45, 205, "left"),
+        (14.15, z_clay, "Clayton Dam", 14.80, 178, "left"),
     ]
-    for x, z, lab in side_dams:
-        ax.plot([x - 0.28, x], [z, max(z - 10, z * 0.96)], color="#7aa0b0", lw=1.0, zorder=4, solid_capstyle="round")
+    for x, z, name, xt, yt, ha in side_dams:
         ax.add_patch(
             Rectangle(
                 (x - 0.035, z - 7),
@@ -1282,9 +1308,9 @@ def render_watershed_full_chart(series: dict) -> bool:
                 clip_on=False,
             )
         )
-        ax.text(x, z + 3.5, lab, ha="center", va="bottom", fontsize=5.4, color="#4a5a62", zorder=6)
+        dam_lead(x, z, name, xt, yt, fontsize=5.2, ha=ha)
 
-    def label_box(x, z, node, name, kind_label, x_text, y_text):
+    def label_box(x, z, node, name, kind_label, x_text, y_text, *, below=False):
         val = (node or {}).get("value")
         d7 = (node or {}).get("delta_7d")
         arrow, tcolor = _trend_arrow(d7, flat=0.8)
@@ -1295,6 +1321,7 @@ def render_watershed_full_chart(series: dict) -> bool:
                 trend = "—" if d7 is None else f"{arrow} {d7:+.0f} cm / 7d"
                 body = f"{name}\n{val:.2f} m\n{trend}"
             face, edge, marker = "#ffffff", "#cfd8dd", "o"
+            box = dict(boxstyle="square,pad=0.30", facecolor=face, edgecolor=edge, alpha=0.97)
         else:
             if val is None:
                 body = f"{name}\n— m³/s"
@@ -1302,23 +1329,24 @@ def render_watershed_full_chart(series: dict) -> bool:
                 trend = "—" if d7 is None else f"{arrow} {d7:+.1f} m³/s / 7d"
                 body = f"{name}\n{val:.1f} m³/s\n{trend}"
             face, edge, marker = "#fff8e8", "#ead9a8", "s"
+            box = dict(boxstyle="ellipse,pad=0.38", facecolor=face, edgecolor=edge, alpha=0.97)
         ax.annotate(
             body,
             xy=(x, z),
             xytext=(x_text, y_text),
             ha="center",
-            va="top",
+            va="bottom" if below else "top",
             fontsize=7.2,
             color="#1a3a4a",
             linespacing=1.35,
             arrowprops=dict(arrowstyle="-", color="#7a8f99", lw=0.7, shrinkA=3, shrinkB=4),
-            bbox=dict(boxstyle="round,pad=0.32", facecolor=face, edgecolor=edge, alpha=0.97),
+            bbox=box,
             zorder=7,
             clip_on=False,
         )
         ax.plot(
             [x],
-            [z + 1.0],
+            [z + (1.0 if not below else -1.0)],
             marker=marker,
             color=tcolor,
             ms=4.5,
@@ -1327,69 +1355,46 @@ def render_watershed_full_chart(series: dict) -> bool:
             markeredgewidth=0.6,
         )
 
-    # Staggered callouts — major lakes + flows
-    label_box(0.80, z_shab, nodes.get("shabomeka"), "Shabomeka", "level", 1.10, 338)
-    label_box(2.75, z_maz, nodes.get("mazinaw"), "Mazinaw", "level", 2.70, 316)
-    label_box(4.85, z_kash, nodes.get("kashwakamak"), "Kashwakamak", "level", 4.55, 338)
-    label_box(3.70, (z_maz + z_kash) / 2, nodes.get("marble"), "Marble outflow", "flow", 3.85, 298)
-    label_box(6.90, z_gull, nodes.get("big_gull"), "Big Gull", "level", 6.85, 316)
-    label_box(8.85, z_crotch, nodes.get("crotch"), "Crotch Lake", "level", 8.95, 338)
-    label_box(11.00, z_stump, nodes.get("stump"), "Stump Lake", "level", 10.95, 316)
-    label_box(13.00, z_dal, nodes.get("dalhousie"), "Dalhousie", "level", 12.65, 338)
-    label_box(13.95, (z_dal + z_miss) / 2, nodes.get("ferguson"), "Ferguson’s Falls", "flow", 14.15, 316)
-    label_box(15.35, z_miss, nodes.get("mississippi"), "Mississippi Lake", "level", 15.55, 338)
-    label_box(16.85, z_ap, nodes.get("appleton"), "Appleton", "flow", 17.05, 316)
-    label_box(19.20, z_galetta, nodes.get("galetta"), "Galetta", "flow", 19.25, 338)
+    # Flows ABOVE — Marble in the marked sky oval; others stay in the upper band
+    y_lvl = 78
+    label_box(3.70, (z_maz + z_kash) / 2, nodes.get("marble"), "Marble outflow", "flow", 5.45, 298)
+    label_box(12.90, z_dal - 2, nodes.get("dalhousie_out"), "Dalhousie outlet", "flow", 13.45, 238)
+    label_box(13.95, (z_dal + z_miss) / 2, nodes.get("ferguson"), "Ferguson’s Falls", "flow", 14.85, 215)
+    label_box(16.85, z_ap, nodes.get("appleton"), "Appleton", "flow", 18.55, 212)
+    label_box(19.20, z_galetta, nodes.get("galetta"), "Galetta", "flow", 20.65, 145)
+
+    # Lake levels BELOW — unchanged except Ottawa lower
+    label_box(0.80, z_shab, nodes.get("shabomeka"), "Shabomeka", "level", 1.05, y_lvl, below=True)
+    label_box(2.75, z_maz, nodes.get("mazinaw"), "Mazinaw", "level", 2.65, y_lvl, below=True)
+    label_box(4.85, z_kash, nodes.get("kashwakamak"), "Kashwakamak", "level", 4.55, y_lvl, below=True)
+    label_box(6.90, z_gull, nodes.get("big_gull"), "Big Gull", "level", 6.85, y_lvl, below=True)
+    label_box(8.85, z_crotch, nodes.get("crotch"), "Crotch Lake", "level", 8.95, y_lvl, below=True)
+    label_box(11.00, z_stump, nodes.get("stump"), "Stump Lake", "level", 10.95, y_lvl, below=True)
+    label_box(13.00, z_dal, nodes.get("dalhousie"), "Dalhousie", "level", 12.70, y_lvl, below=True)
+    label_box(15.35, z_miss, nodes.get("mississippi"), "Mississippi Lake", "level", 15.45, y_lvl, below=True)
     ax.annotate(
         "Ottawa River\nconfluence\n~70 m MASL",
         xy=(21.1, z_ottawa),
-        xytext=(21.0, 316),
+        xytext=(19.70, 22),
         ha="center",
-        va="top",
+        va="bottom",
         fontsize=7.2,
         color="#1a3a4a",
         linespacing=1.35,
         arrowprops=dict(arrowstyle="-", color="#7a8f99", lw=0.7, shrinkA=3, shrinkB=4),
-        bbox=dict(boxstyle="round,pad=0.32", facecolor="#eef6f0", edgecolor="#b7d0c0", alpha=0.97),
+        bbox=dict(boxstyle="square,pad=0.30", facecolor="#eef6f0", edgecolor="#b7d0c0", alpha=0.97),
         zorder=7,
         clip_on=False,
     )
-    ax.plot([21.1], [z_ottawa + 1.0], marker="D", color="#2f6f7e", ms=4.5, zorder=8, markeredgecolor="white", markeredgewidth=0.6)
-
-    # Side-lake level chips
-    def side_chip(x, z, node, name):
-        val = (node or {}).get("value")
-        txt = f"{name} {val:.1f} m" if val is not None else f"{name} —"
-        ax.text(
-            x,
-            min(z + 14, 348),
-            txt,
-            ha="center",
-            va="bottom",
-            fontsize=5.6,
-            color="#3a4a52",
-            zorder=7,
-            bbox=dict(boxstyle="round,pad=0.16", facecolor="#f7fafb", edgecolor="#d5dde3", alpha=0.95),
-        )
-
-    side_chip(0.50, z_mosque, nodes.get("mosque"), "Mosque")
-    side_chip(0.90, z_summit, nodes.get("summit"), "Summit")
-    side_chip(1.70, z_palm, nodes.get("palmerston"), "Palmerston")
-    side_chip(2.50, z_can, nodes.get("canonto"), "Canonto")
-    side_chip(4.80, z_missag, nodes.get("mississagagon"), "Mississagagon")
-    side_chip(6.80, z_pine, nodes.get("pine"), "Pine")
-    side_chip(7.10, z_malc, nodes.get("malcolm"), "Malcolm")
-    side_chip(12.00, z_widow, nodes.get("widow"), "Widow")
-    side_chip(13.10, z_lanark, nodes.get("lanark"), "Lanark")
-    side_chip(14.10, z_clay, nodes.get("clayton"), "Clayton")
+    ax.plot([21.1], [z_ottawa - 1.0], marker="D", color="#2f6f7e", ms=4.5, zorder=8, markeredgecolor="white", markeredgewidth=0.6)
 
     ax.annotate(
         "",
-        xy=(21.7, 62),
-        xytext=(0.2, 62),
+        xy=(17.4, 20),
+        xytext=(0.2, 20),
         arrowprops=dict(arrowstyle="->", color="#5a7a86", lw=1.15),
     )
-    ax.text(11.0, 58.5, "Flow direction → Ottawa River near Fitzroy Harbour", ha="center", va="top", fontsize=8, color="#5a7a86")
+    ax.text(8.6, 18.5, "Flow direction → Ottawa River near Fitzroy Harbour", ha="center", va="top", fontsize=8, color="#5a7a86")
 
     legend_handles = [
         Patch(facecolor="#2f6f7e", edgecolor="#1f4e79", label="Lake"),
@@ -1398,8 +1403,8 @@ def render_watershed_full_chart(series: dict) -> bool:
     ]
     leg = ax.legend(
         handles=legend_handles,
-        loc="lower right",
-        bbox_to_anchor=(0.995, 0.12),
+        loc="upper right",
+        bbox_to_anchor=(0.995, 0.92),
         fontsize=8,
         frameon=True,
         fancybox=True,
@@ -1411,7 +1416,7 @@ def render_watershed_full_chart(series: dict) -> bool:
     leg.get_title().set_color("#1a3a4a")
 
     ax.set_title(
-        "Mississippi watershed profile (full system) — dams, levels, flows & 7-day trends",
+        "Mississippi watershed profile (full system) — flows above · lake levels below",
         loc="left",
         color="#1a3a4a",
         fontsize=11.5,
@@ -1426,13 +1431,14 @@ def render_watershed_full_chart(series: dict) -> bool:
     fig.text(
         0.01,
         0.005,
-        "NOT TO SCALE · Schematic main stem + side dams. Levels from MVCA/KiWIS; flows from WSC. Tributary lakes shown at join points. Trends ≈ change vs ~7 days earlier.",
+        "NOT TO SCALE · Schematic main stem + side dams. White boxes = lake levels (m MASL); ovals = flows. Dam names are structures only (no MASL). Levels MVCA/KiWIS; flows WSC. Trends ≈ vs ~7 days earlier.",
         fontsize=7.2,
         color="#6a7c84",
     )
     fig.savefig(WATERSHED_FULL_PNG, dpi=160, bbox_inches="tight", facecolor="white")
     plt.close()
     return True
+
 
 
 def render_html(series: dict) -> None:

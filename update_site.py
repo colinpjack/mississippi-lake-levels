@@ -1602,7 +1602,7 @@ def render_html(series: dict) -> None:
                 <tr>
                   <td style="vertical-align:top;padding-right:16px;">
                     <p style="margin:0 0 6px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#8eb8c8;">Mississippi Lake · Ontario</p>
-                    <h1 style="margin:0;font-family:Georgia,serif;font-size:28px;line-height:1.25;font-weight:normal;color:#ffffff;">High Water Update for Cottagers</h1>
+                    <h1 style="margin:0;font-family:Georgia,serif;font-size:28px;line-height:1.25;font-weight:normal;color:#ffffff;">Water Update for Mississippi Cottagers</h1>
                     <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#b7d0da;">Updated {when} EDT · auto-refreshes hourly, but dependent on MVCA data updates</p>
                   </td>
                   <td style="vertical-align:middle;width:1%;">
@@ -1637,7 +1637,7 @@ def render_html(series: dict) -> None:
           <tr>
             <td style="padding:28px 32px 8px 32px;font-family:Georgia,serif;font-size:16px;line-height:1.55;color:#243036;">
               <p style="margin:0 0 14px 0;">People of the Lake,</p>
-              <p style="margin:0 0 14px 0;">Live briefing for Mississippi Lake after the recent high-water pulse. Gauges below are from MVCA / Water Survey of Canada. The chart includes a <strong>7-day model outlook</strong> (not an official forecast).</p>
+              <p style="margin:0 0 14px 0;">Live briefing for Mississippi Lake. Gauges below are from MVCA / Water Survey of Canada. The chart includes a <strong>7-day model outlook</strong> (not an official forecast).</p>
             </td>
           </tr>
           <tr>
@@ -1684,7 +1684,7 @@ def render_html(series: dict) -> None:
           </tr>
           <tr>
             <td style="padding:16px 32px 4px 32px;font-family:Georgia,serif;font-size:16px;color:#243036;">
-              <h2 style="margin:0 0 8px 0;font-size:20px;color:#1a3a4a;">Inflow, outflow &amp; lake level</h2>
+              <h2 style="margin:0 0 8px 0;font-size:20px;color:#1a3a4a;">Inflow, outflow &amp; Mississippi lake level</h2>
               <p style="margin:0 0 12px 0;font-size:15px;">Solid = last 7 days observed. Dashed = next 7 days modeled. Rain-sensitive days in forecast: {rain_note}. <span style="color:#5a7a86;">Click the chart for full screen.</span></p>
             </td>
           </tr>
@@ -1730,7 +1730,7 @@ def render_html(series: dict) -> None:
           </tr>
           <tr>
             <td style="padding:20px 32px 4px 32px;font-family:Georgia,serif;font-size:16px;color:#243036;">
-              <h2 style="margin:0 0 8px 0;font-size:20px;color:#1a3a4a;">Year-to-date lake level</h2>
+              <h2 style="margin:0 0 8px 0;font-size:20px;color:#1a3a4a;">Year-to-date Mississippi lake level</h2>
               <p style="margin:0 0 12px 0;font-size:15px;">Monthly mean lake level for {series.get("ytd_year") or ""} so far, compared with the long-term monthly average. <span style="color:#5a7a86;">Click the chart for full screen.</span></p>
             </td>
           </tr>

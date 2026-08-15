@@ -1267,33 +1267,33 @@ def render_watershed_full_chart(series: dict) -> bool:
     d_almonte = draw_dam(18.55, z_almonte, height=8)
     d_galetta = draw_dam(20.00, z_galetta, height=9)
 
-    # Dam labels — above-right of crests, short down-left leads (per markup)
-    dam_lead(*d_shab, "Shabomeka Dam", 1.70, 328)
-    dam_lead(*d_maz, "Mazinaw Dam", 3.50, 282)
-    dam_lead(*d_kash, "Kashwakamak Dam", 6.85, 297)
-    dam_lead(*d_gull, "Big Gull Dam", 7.90, 268)
-    dam_lead(*d_farm, "Farm Dam", 8.85, 275, fontsize=5.3)
-    dam_lead(*d_crotch, "Crotch Dam (OPG)", 9.55, 258, ha="center")
-    dam_lead(*d_hf, "High Falls GS", 11.15, 248)
-    dam_lead(*d_cp, "Carleton Place Dam", 15.45, 155, fontsize=5.3, ha="right")
-    dam_lead(*d_apgs, "Appleton GS", 17.05, 185, fontsize=5.3, ha="center")
-    dam_lead(*d_enerdu, "Enerdu GS", 17.85, 175, fontsize=5.3)
-    dam_lead(*d_almonte, "Almonte GS", 19.20, 148, fontsize=5.3)
-    dam_lead(*d_galetta, "Galetta GS", 21.35, 120, fontsize=5.3)
+    # Dam labels — all lean right (ha=left); staggered so boxes never overlap ovals
+    dam_lead(*d_shab, "Shabomeka Dam", 1.60, 324)
+    dam_lead(*d_maz, "Mazinaw Dam", 3.90, 306)
+    dam_lead(*d_kash, "Kashwakamak Dam", 5.80, 262)
+    dam_lead(*d_gull, "Big Gull Dam", 8.00, 252)
+    dam_lead(*d_farm, "Farm Dam", 8.55, 276, fontsize=5.3)
+    dam_lead(*d_crotch, "Crotch Dam (OPG)", 9.90, 255)
+    dam_lead(*d_hf, "High Falls GS", 11.00, 238)
+    dam_lead(*d_cp, "Carleton Place Dam", 16.50, 192, fontsize=5.3)
+    dam_lead(*d_apgs, "Appleton GS", 17.45, 145, fontsize=5.3)
+    dam_lead(*d_enerdu, "Enerdu GS", 18.25, 180, fontsize=5.3)
+    dam_lead(*d_almonte, "Almonte GS", 19.00, 158, fontsize=5.3)
+    dam_lead(*d_galetta, "Galetta GS", 20.30, 170, fontsize=5.3)
 
-    # Side dams — same above-right pattern; Summit tucked left to clear Mosque
+    # Side dams — same right-lean, vertical stagger, clear of flow ovals
     side_dams = [
-        (0.50, z_mosque, "Mosque Dam", 1.35, 340, "left"),
-        (0.90, z_summit, "Summit Dam", 1.05, 316, "left"),
-        (1.70, z_palm, "Palmerston Dam", 3.05, 303, "left"),
-        (2.50, z_can, "Canonto Dam", 2.90, 280, "left"),
-        (4.80, z_missag, "Mississagagon Dam", 4.55, 278, "right"),
-        (6.80, z_pine, "Pine Dam", 7.40, 278, "left"),
-        (7.20, z_malc, "Malcolm Dam", 7.90, 288, "left"),
-        (12.00, z_widow, "Widow Dam", 12.85, 233, "left"),
-        (12.75, (z_widow + z_lanark) / 2, "Bennett Dam", 14.10, 218, "left"),
-        (13.15, z_lanark, "Lanark Dam", 14.45, 205, "left"),
-        (14.15, z_clay, "Clayton Dam", 14.80, 178, "left"),
+        (0.50, z_mosque, "Mosque Dam", 0.70, 338, "left"),
+        (0.90, z_summit, "Summit Dam", 1.20, 304, "left"),
+        (1.70, z_palm, "Palmerston Dam", 2.05, 292, "left"),
+        (2.50, z_can, "Canonto Dam", 2.85, 266, "left"),
+        (4.80, z_missag, "Mississagagon Dam", 5.15, 292, "left"),
+        (6.80, z_pine, "Pine Dam", 7.55, 286, "left"),
+        (7.20, z_malc, "Malcolm Dam", 7.60, 314, "left"),
+        (12.00, z_widow, "Widow Dam", 12.35, 228, "left"),
+        (12.75, (z_widow + z_lanark) / 2, "Bennett Dam", 13.20, 200, "left"),
+        (13.15, z_lanark, "Lanark Dam", 13.40, 158, "left"),
+        (14.15, z_clay, "Clayton Dam", 14.80, 192, "left"),
     ]
     for x, z, name, xt, yt, ha in side_dams:
         ax.add_patch(

@@ -1270,13 +1270,13 @@ def render_watershed_full_chart(series: dict) -> bool:
     # Dam labels — above-right of crests, short down-left leads (per markup)
     dam_lead(*d_shab, "Shabomeka Dam", 1.70, 328)
     dam_lead(*d_maz, "Mazinaw Dam", 3.50, 282)
-    dam_lead(*d_kash, "Kashwakamak Dam", 5.95, 272)
+    dam_lead(*d_kash, "Kashwakamak Dam", 6.85, 297)
     dam_lead(*d_gull, "Big Gull Dam", 7.90, 268)
     dam_lead(*d_farm, "Farm Dam", 8.85, 275, fontsize=5.3)
     dam_lead(*d_crotch, "Crotch Dam (OPG)", 9.55, 258, ha="center")
     dam_lead(*d_hf, "High Falls GS", 11.15, 248)
     dam_lead(*d_cp, "Carleton Place Dam", 15.45, 155, fontsize=5.3, ha="right")
-    dam_lead(*d_apgs, "Appleton GS", 16.50, 155, fontsize=5.3)
+    dam_lead(*d_apgs, "Appleton GS", 17.05, 185, fontsize=5.3, ha="center")
     dam_lead(*d_enerdu, "Enerdu GS", 17.85, 175, fontsize=5.3)
     dam_lead(*d_almonte, "Almonte GS", 19.20, 148, fontsize=5.3)
     dam_lead(*d_galetta, "Galetta GS", 21.35, 120, fontsize=5.3)
@@ -1290,8 +1290,8 @@ def render_watershed_full_chart(series: dict) -> bool:
         (4.80, z_missag, "Mississagagon Dam", 4.55, 278, "right"),
         (6.80, z_pine, "Pine Dam", 7.40, 278, "left"),
         (7.20, z_malc, "Malcolm Dam", 7.90, 288, "left"),
-        (12.00, z_widow, "Widow Dam", 12.55, 218, "left"),
-        (12.75, (z_widow + z_lanark) / 2, "Bennett Dam", 13.90, 188, "left"),
+        (12.00, z_widow, "Widow Dam", 12.85, 233, "left"),
+        (12.75, (z_widow + z_lanark) / 2, "Bennett Dam", 14.10, 218, "left"),
         (13.15, z_lanark, "Lanark Dam", 14.45, 205, "left"),
         (14.15, z_clay, "Clayton Dam", 14.80, 178, "left"),
     ]
@@ -1357,10 +1357,10 @@ def render_watershed_full_chart(series: dict) -> bool:
 
     # Flows ABOVE — Marble in the marked sky oval; others stay in the upper band
     y_lvl = 78
-    label_box(3.70, (z_maz + z_kash) / 2, nodes.get("marble"), "Marble outflow", "flow", 5.45, 298)
-    label_box(12.90, z_dal - 2, nodes.get("dalhousie_out"), "Dalhousie outlet", "flow", 13.45, 238)
-    label_box(13.95, (z_dal + z_miss) / 2, nodes.get("ferguson"), "Ferguson’s Falls", "flow", 14.85, 215)
-    label_box(16.85, z_ap, nodes.get("appleton"), "Appleton", "flow", 18.55, 212)
+    label_box(3.70, (z_maz + z_kash) / 2, nodes.get("marble"), "Marble outflow", "flow", 6.15, 346)
+    label_box(12.90, z_dal - 2, nodes.get("dalhousie_out"), "Dalhousie outlet", "flow", 13.10, 305)
+    label_box(13.95, (z_dal + z_miss) / 2, nodes.get("ferguson"), "Ferguson’s Falls", "flow", 15.40, 278)
+    label_box(16.85, z_ap, nodes.get("appleton"), "Appleton", "flow", 19.40, 268)
     label_box(19.20, z_galetta, nodes.get("galetta"), "Galetta", "flow", 20.65, 145)
 
     # Lake levels BELOW — unchanged except Ottawa lower

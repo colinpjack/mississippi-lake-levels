@@ -1602,7 +1602,7 @@ def render_html(series: dict) -> None:
                 <tr>
                   <td style="vertical-align:top;padding-right:16px;">
                     <p style="margin:0 0 6px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#8eb8c8;">Mississippi Lake · Ontario</p>
-                    <h1 style="margin:0;font-family:Georgia,serif;font-size:28px;line-height:1.25;font-weight:normal;color:#ffffff;">Water Update for Mississippi Cottagers</h1>
+                    <h1 style="margin:0;font-family:Georgia,serif;font-size:28px;line-height:1.25;font-weight:normal;color:#ffffff;">Water Update for Mississippi Lake Cottagers</h1>
                     <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#b7d0da;">Updated {when} EDT · auto-refreshes hourly, but dependent on MVCA data updates</p>
                   </td>
                   <td style="vertical-align:middle;width:1%;">

@@ -31,6 +31,7 @@ def _asset_v(path: Path) -> str:
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
 CHART_PNG = ROOT / "chart.png"
+CHART_60_PNG = ROOT / "chart_60.png"
 YTD_CHART_PNG = ROOT / "ytd_chart.png"
 WATERSHED_PNG = ROOT / "watershed_profile.png"
 WATERSHED_FULL_PNG = ROOT / "watershed_full_profile.png"
@@ -142,6 +143,50 @@ def fetch_wsc_daily(stn: str, start: str, end: str) -> tuple[dict[str, float], d
             if ts is not None and (latest is None or ts > latest):
                 latest = ts
     return {d: mean(v) for d, v in sorted(by.items())}, latest
+
+
+def fetch_wsc_daily_mean(stn: str, start: str, end: str) -> tuple[dict[str, float], datetime | None]:
+    """HYDAT published daily means — useful for weeks older than the realtime window."""
+    url = (
+        "https://api.weather.gc.ca/collections/hydrometric-daily-mean/items"
+        f"?STATION_NUMBER={stn}&datetime={start}/{end}&limit=2000&f=json"
+    )
+    by: dict[str, list[float]] = defaultdict(list)
+    latest: datetime | None = None
+    for f in fetch_json(url).get("features", []):
+        p = f.get("properties") or {}
+        if p.get("DISCHARGE") is None:
+            continue
+        day = str(p.get("DATE") or p.get("DATETIME") or "")[:10]
+        if len(day) < 10:
+            continue
+        by[day].append(float(p["DISCHARGE"]))
+        ts = _parse_obs_time(str(p.get("DATE") or p.get("DATETIME") or ""))
+        if ts is not None and (latest is None or ts > latest):
+            latest = ts
+    return {d: mean(v) for d, v in sorted(by.items())}, latest
+
+
+def fetch_wsc_flow(stn: str, start: str, end: str) -> tuple[dict[str, float], datetime | None]:
+    """Realtime daily averages, back-filled with HYDAT daily means when available."""
+    daily: dict[str, float] = {}
+    latest: datetime | None = None
+    mean_start = start[:10]
+    mean_end = end[:10]
+    try:
+        hist, hist_ts = fetch_wsc_daily_mean(stn, mean_start, mean_end)
+        daily.update(hist)
+        latest = hist_ts
+    except Exception as e:
+        print(f"  WSC daily-mean {stn} failed: {e}")
+    try:
+        rt, rt_ts = fetch_wsc_daily(stn, start, end)
+        daily.update(rt)
+        if rt_ts is not None and (latest is None or rt_ts > latest):
+            latest = rt_ts
+    except Exception as e:
+        print(f"  WSC realtime {stn} failed: {e}")
+    return daily, latest
 
 
 def fetch_lake_daily(
@@ -324,11 +369,11 @@ def fetch_watershed_full(
 
 
 def fetch_open_meteo_wed_rain(lat=45.14, lon=-76.15) -> dict[str, float]:
-    """Return daily precip mm for next ~7 days; used to scale Wed bump."""
+    """Return daily precip mm for the forecast window; used to scale rain bumps."""
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
-        "&daily=precipitation_sum&timezone=America%2FToronto&forecast_days=8"
+        "&daily=precipitation_sum&timezone=America%2FToronto&forecast_days=16"
     )
     try:
         d = fetch_json(url)["daily"]
@@ -433,18 +478,73 @@ def ticker_markup(delta: float | None, *, flat: float, digits: int = 1, unit: st
     )
 
 
+def _project_horizon(
+    *,
+    last_d: str,
+    last_q: float,
+    ap_last: float,
+    peak_d: str,
+    peak_q: float,
+    q_base: float,
+    a: float,
+    k: float,
+    bias: float,
+    rain_bump: dict[str, float],
+    start_level: float,
+    n_days: int,
+) -> tuple[list[str], list[float], list[float], list[float], list[float], list[float]]:
+    """Storage-routing outlook for n_days after last_d."""
+    proj_start = date.fromisoformat(last_d)
+    proj_days, proj_ff, proj_ap, proj_lake, proj_lo, proj_hi = [], [], [], [], [], []
+    level = start_level
+    level_lo = start_level
+    level_hi = start_level
+    for i in range(1, n_days + 1):
+        d = (proj_start + timedelta(days=i)).isoformat()
+        t_from_peak = (date.fromisoformat(d) - date.fromisoformat(peak_d)).days
+        qff = q_base + (peak_q - q_base) * math.exp(-a * t_from_peak)
+        qff += rain_bump.get(d, 0.0)
+        if i == 1:
+            qap = 0.55 * ap_last + 0.45 * qff
+        else:
+            qap = 0.35 * proj_ap[-1] + 0.65 * qff
+        if i <= 2:
+            qap = max(qap, qff - 2)
+        gap = qff - qap
+        fade = math.exp(-0.35 * min(i, 14))
+        widen = 0.08 * max(0, i - 7)
+        dL = k * CM_PER_M3S_DAY * gap + bias * fade
+        dL_lo = k * 0.7 * CM_PER_M3S_DAY * gap + (bias - 0.8) * fade - 0.3 - widen
+        dL_hi = (
+            k * 1.3 * CM_PER_M3S_DAY * gap
+            + (bias + 1.0) * fade
+            + (2.0 if d in rain_bump else 0.4)
+            + widen
+        )
+        level += dL / 100
+        level_lo += dL_lo / 100
+        level_hi += dL_hi / 100
+        proj_days.append(d)
+        proj_ff.append(qff)
+        proj_ap.append(qap)
+        proj_lake.append(level)
+        proj_lo.append(level_lo)
+        proj_hi.append(level_hi)
+    return proj_days, proj_ff, proj_ap, proj_lake, proj_lo, proj_hi
+
+
 def build_series() -> dict:
     now = datetime.now(timezone.utc)
     tor = now.astimezone(ZoneInfo("America/Toronto"))
     today = tor.date()
     edt = tor
     end = (now + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    start = (now - timedelta(days=10)).strftime("%Y-%m-%dT00:00:00Z")
-    frm = (now - timedelta(days=10)).strftime("%Y-%m-%dT00:00:00-0400")
+    start = (now - timedelta(days=80)).strftime("%Y-%m-%dT00:00:00Z")
+    frm = (now - timedelta(days=80)).strftime("%Y-%m-%dT00:00:00-0400")
     to = (now + timedelta(days=1)).strftime("%Y-%m-%dT23:59:59-0400")
 
-    ff, ff_ts = fetch_wsc_daily("02KF001", start, end)
-    ap, ap_ts = fetch_wsc_daily("02KF006", start, end)
+    ff, ff_ts = fetch_wsc_flow("02KF001", start, end)
+    ap, ap_ts = fetch_wsc_flow("02KF006", start, end)
     lake, lake_ts = fetch_lake_daily(frm, to)
 
     # Flow gauges often publish today's partial day before KiWIS has a lake day.
@@ -463,12 +563,21 @@ def build_series() -> dict:
     hist_ap = [ap.get(d, ff[d]) for d in days]
     hist_lake = [lake[d] for d in days]
 
-    # Calibrate k from observed gap vs rise
+    # Lake KiWIS usually has a longer archive than WSC realtime (~30 days).
+    # Review the last 60 lake days; leave flow gaps where discharge is unpublished.
+    days_60 = sorted(lake)[-60:]
+    hist_60_ff = [ff.get(d) for d in days_60]
+    hist_60_ap = [ap.get(d) for d in days_60]
+    hist_60_lake = [lake[d] for d in days_60]
+    hist_60_historic = [historic_mean_for_date(d) for d in days_60]
+
+    # Calibrate k from recent gap vs rise only — not the full 60-day window —
+    # so the 7-day outlook stays on the same recent-pulse footing.
+    cal_days = overlap[-14:]
     obs = []
-    ds = sorted(lake)
-    for i in range(1, len(ds)):
-        d0, d1 = ds[i - 1], ds[i]
-        if d0 in ff and d0 in ap:
+    for i in range(1, len(cal_days)):
+        d0, d1 = cal_days[i - 1], cal_days[i]
+        if d0 in ff and d0 in ap and d0 in lake and d1 in lake:
             gap = ff[d0] - ap[d0]
             dL = (lake[d1] - lake[d0]) * 100
             obs.append((gap, dL))
@@ -498,40 +607,43 @@ def build_series() -> dict:
             rain_bump[d] = min(20.0, 4.0 + mm * 0.6)
 
     ap_last = ap.get(last_d, last_q)
-    proj_start = date.fromisoformat(last_d)
-    proj_days, proj_ff, proj_ap, proj_lake, proj_lo, proj_hi = [], [], [], [], [], []
-    level = lake[last_d]
-    level_lo = level
-    level_hi = level
-
-    for i in range(1, 8):
-        d = (proj_start + timedelta(days=i)).isoformat()
-        t_from_peak = (date.fromisoformat(d) - date.fromisoformat(peak_d)).days
-        qff = Qbase + (peak_q - Qbase) * math.exp(-a * t_from_peak)
-        qff += rain_bump.get(d, 0.0)
-        if i == 1:
-            qap = 0.55 * ap_last + 0.45 * qff
-        else:
-            qap = 0.35 * proj_ap[-1] + 0.65 * qff
-        if i <= 2:
-            qap = max(qap, qff - 2)
-        gap = qff - qap
-        dL = k * CM_PER_M3S_DAY * gap + bias * math.exp(-0.35 * i)
-        dL_lo = k * 0.7 * CM_PER_M3S_DAY * gap + (bias - 0.8) * math.exp(-0.35 * i) - 0.3
-        dL_hi = (
-            k * 1.3 * CM_PER_M3S_DAY * gap
-            + (bias + 1.0) * math.exp(-0.35 * i)
-            + (2.0 if d in rain_bump else 0.4)
-        )
-        level += dL / 100
-        level_lo += dL_lo / 100
-        level_hi += dL_hi / 100
-        proj_days.append(d)
-        proj_ff.append(qff)
-        proj_ap.append(qap)
-        proj_lake.append(level)
-        proj_lo.append(level_lo)
-        proj_hi.append(level_hi)
+    start_level = lake[last_d]
+    proj_days, proj_ff, proj_ap, proj_lake, proj_lo, proj_hi = _project_horizon(
+        last_d=last_d,
+        last_q=last_q,
+        ap_last=ap_last,
+        peak_d=peak_d,
+        peak_q=peak_q,
+        q_base=Qbase,
+        a=a,
+        k=k,
+        bias=bias,
+        rain_bump=rain_bump,
+        start_level=start_level,
+        n_days=7,
+    )
+    (
+        proj_60_days,
+        proj_60_ff,
+        proj_60_ap,
+        proj_60_lake,
+        proj_60_lo,
+        proj_60_hi,
+    ) = _project_horizon(
+        last_d=last_d,
+        last_q=last_q,
+        ap_last=ap_last,
+        peak_d=peak_d,
+        peak_q=peak_q,
+        q_base=Qbase,
+        a=a,
+        k=k,
+        bias=bias,
+        rain_bump=rain_bump,
+        start_level=start_level,
+        n_days=60,
+    )
+    proj_60_historic = [historic_mean_for_date(d) for d in proj_60_days]
 
     # Latest instantaneous-ish values from last daily means
     gap_now = hist_ff[-1] - hist_ap[-1]
@@ -600,6 +712,18 @@ def build_series() -> dict:
         "proj_lake": proj_lake,
         "proj_lo": proj_lo,
         "proj_hi": proj_hi,
+        "hist_60_days": days_60,
+        "hist_60_ff": hist_60_ff,
+        "hist_60_ap": hist_60_ap,
+        "hist_60_lake": hist_60_lake,
+        "hist_60_historic": hist_60_historic,
+        "proj_60_days": proj_60_days,
+        "proj_60_ff": proj_60_ff,
+        "proj_60_ap": proj_60_ap,
+        "proj_60_lake": proj_60_lake,
+        "proj_60_lo": proj_60_lo,
+        "proj_60_hi": proj_60_hi,
+        "proj_60_historic": proj_60_historic,
         "latest_lake": hist_lake[-1],
         "latest_ff": hist_ff[-1],
         "latest_ap": hist_ap[-1],
@@ -609,6 +733,8 @@ def build_series() -> dict:
         "vs_early_july_cm": (hist_lake[-1] - EARLY_JULY_LEVEL) * 100,
         "proj_end_lake": proj_lake[-1],
         "proj_change_cm": (proj_lake[-1] - hist_lake[-1]) * 100,
+        "proj_60_end_lake": proj_60_lake[-1],
+        "proj_60_change_cm": (proj_60_lake[-1] - hist_lake[-1]) * 100,
         "deltas": deltas,
         "rain_bump": rain_bump,
         **ytd,
@@ -625,18 +751,45 @@ def build_series() -> dict:
     }
 
 
-def render_chart(series: dict) -> None:
+def _render_balance_chart(
+    series: dict,
+    *,
+    hist_days_iso: list[str],
+    hist_ff: list[float | None],
+    hist_ap: list[float | None],
+    hist_lake: list[float],
+    proj_days_iso: list[str],
+    proj_ff: list[float],
+    proj_ap: list[float],
+    proj_lake: list[float],
+    proj_lo: list[float],
+    proj_hi: list[float],
+    title: str,
+    out_path: Path,
+    weekly: bool = False,
+    historic_line: list[float | None] | None = None,
+) -> None:
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.dates as mdates
     import matplotlib.pyplot as plt
 
-    hist_days = [datetime.fromisoformat(d) for d in series["hist_days"]]
-    proj_days = [datetime.fromisoformat(d) for d in series["proj_days"]]
-    hist_ff, hist_ap, hist_lake = series["hist_ff"], series["hist_ap"], series["hist_lake"]
-    proj_ff, proj_ap = series["proj_ff"], series["proj_ap"]
-    proj_lake, proj_lo, proj_hi = series["proj_lake"], series["proj_lo"], series["proj_hi"]
+    def _xy(days, vals):
+        xs, ys = [], []
+        for d, v in zip(days, vals):
+            if v is not None:
+                xs.append(d)
+                ys.append(v)
+        return xs, ys
+
+    hist_days = [datetime.fromisoformat(d) for d in hist_days_iso]
+    proj_days = [datetime.fromisoformat(d) for d in proj_days_iso]
+    ms_obs = 3.5 if weekly else 5
+    ms_proj = 3.0 if weekly else 4
+    marker = "o" if not weekly else ""
+    ff_x, ff_y = _xy(hist_days, hist_ff)
+    ap_x, ap_y = _xy(hist_days, hist_ap)
 
     plt.rcParams.update(
         {
@@ -651,31 +804,63 @@ def render_chart(series: dict) -> None:
         2, 1, figsize=(10.2, 7.2), sharex=True, gridspec_kw={"height_ratios": [1.05, 1.15], "hspace": 0.18}
     )
     ax = axes[0]
-    ax.plot(hist_days, hist_ff, color="#0b6e4f", lw=2.4, marker="o", ms=5, label="Inflow (Ferguson's Falls)")
-    ax.plot(hist_days, hist_ap, color="#c45c26", lw=2.4, marker="o", ms=5, label="Outflow (Appleton)")
-    ax.plot([hist_days[-1]] + proj_days, [hist_ff[-1]] + proj_ff, color="#0b6e4f", lw=2.0, ls="--", marker="o", ms=4, alpha=0.85)
-    ax.plot([hist_days[-1]] + proj_days, [hist_ap[-1]] + proj_ap, color="#c45c26", lw=2.0, ls="--", marker="o", ms=4, alpha=0.85)
+    if ff_x:
+        ax.plot(ff_x, ff_y, color="#0b6e4f", lw=2.2 if weekly else 2.4, marker=marker, ms=ms_obs, label="Inflow (Ferguson's Falls)")
+        ax.plot(
+            [ff_x[-1]] + proj_days,
+            [ff_y[-1]] + proj_ff,
+            color="#0b6e4f",
+            lw=2.0,
+            ls="--",
+            marker=marker,
+            ms=ms_proj,
+            alpha=0.85,
+        )
+    if ap_x:
+        ax.plot(ap_x, ap_y, color="#c45c26", lw=2.2 if weekly else 2.4, marker=marker, ms=ms_obs, label="Outflow (Appleton)")
+        ax.plot(
+            [ap_x[-1]] + proj_days,
+            [ap_y[-1]] + proj_ap,
+            color="#c45c26",
+            lw=2.0,
+            ls="--",
+            marker=marker,
+            ms=ms_proj,
+            alpha=0.85,
+        )
     for i in range(len(hist_days) - 1):
-        if hist_ff[i] > hist_ap[i]:
+        a0, a1 = hist_ap[i], hist_ap[i + 1]
+        f0, f1 = hist_ff[i], hist_ff[i + 1]
+        if None in (a0, a1, f0, f1):
+            continue
+        if f0 > a0:
             ax.fill_between(
                 [hist_days[i], hist_days[i + 1]],
-                [hist_ap[i], hist_ap[i + 1]],
-                [hist_ff[i], hist_ff[i + 1]],
+                [a0, a1],
+                [f0, f1],
                 color="#0b6e4f",
                 alpha=0.12,
             )
-    # shade rain bump days
     for d in series.get("rain_bump", {}):
         dt = datetime.fromisoformat(d)
         ax.axvspan(dt, dt + timedelta(days=1), color="#5b8def", alpha=0.12)
     ax.set_ylabel("Flow (m³/s)")
-    ax.set_title("Mississippi Lake water balance — last 7 days + 7-day outlook", loc="left", color="#1a3a4a")
+    ax.set_title(title, loc="left", color="#1a3a4a")
     ax.legend(loc="upper left", fontsize=9)
     ax.grid(True, axis="y")
-    ax.set_ylim(0, max(95, max(hist_ff + hist_ap + proj_ff + proj_ap) * 1.15))
+    flow_vals = [v for v in list(hist_ff) + list(hist_ap) + list(proj_ff) + list(proj_ap) if v is not None]
+    ax.set_ylim(0, max(95, max(flow_vals) * 1.15) if flow_vals else 95)
 
     ax2 = axes[1]
-    ax2.plot(hist_days, hist_lake, color="#1f4e79", lw=2.6, marker="o", ms=5, label="Lake level (observed)")
+    ax2.plot(
+        hist_days,
+        hist_lake,
+        color="#1f4e79",
+        lw=2.4 if weekly else 2.6,
+        marker=marker,
+        ms=ms_obs,
+        label="Lake level (observed)",
+    )
     ax2.fill_between(proj_days, proj_lo, proj_hi, color="#1f4e79", alpha=0.15, label="Projection range")
     ax2.plot(
         [hist_days[-1]] + proj_days,
@@ -683,21 +868,32 @@ def render_chart(series: dict) -> None:
         color="#1f4e79",
         lw=2.2,
         ls="--",
-        marker="o",
-        ms=4,
+        marker=marker,
+        ms=ms_proj,
         label="Lake level (projected)",
     )
     ax2.axhline(EARLY_JULY_LEVEL, color="#6b8f71", ls=":", lw=1.3, label=f"Early July ~{EARLY_JULY_LEVEL:.2f} m")
-    hist_avg = series.get("historic_avg")
-    if hist_avg is not None:
-        ax2.axhline(hist_avg, color="#8a6d3b", ls=":", lw=1.4, label=f"Historic avg ~{hist_avg:.2f} m")
+    if historic_line:
+        xs, ys = [], []
+        for dt, val in zip(hist_days + proj_days, historic_line):
+            if val is not None:
+                xs.append(dt)
+                ys.append(val)
+        if xs:
+            ax2.plot(xs, ys, color="#8a6d3b", ls=":", lw=1.4, label="Historic avg (this date)")
+    else:
+        hist_avg = series.get("historic_avg")
+        if hist_avg is not None:
+            ax2.axhline(hist_avg, color="#8a6d3b", ls=":", lw=1.4, label=f"Historic avg ~{hist_avg:.2f} m")
     for d in series.get("rain_bump", {}):
         dt = datetime.fromisoformat(d)
         ax2.axvspan(dt, dt + timedelta(days=1), color="#5b8def", alpha=0.12)
     ax2.set_ylabel("Level (m MASL)")
     ax2.set_xlabel("Date")
-    ax2.legend(loc="lower right", fontsize=9)
+    ax2.legend(loc="lower right", fontsize=8 if weekly else 9)
     ax2.grid(True, axis="y")
+    if weekly:
+        ax2.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
     ax2.xaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
     fig.text(
         0.01,
@@ -706,8 +902,52 @@ def render_chart(series: dict) -> None:
         fontsize=7.5,
         color="#6a7c84",
     )
-    fig.savefig(CHART_PNG, dpi=160, bbox_inches="tight", facecolor="white")
+    fig.savefig(out_path, dpi=160, bbox_inches="tight", facecolor="white")
     plt.close()
+
+
+def render_chart(series: dict) -> None:
+    _render_balance_chart(
+        series,
+        hist_days_iso=series["hist_days"],
+        hist_ff=series["hist_ff"],
+        hist_ap=series["hist_ap"],
+        hist_lake=series["hist_lake"],
+        proj_days_iso=series["proj_days"],
+        proj_ff=series["proj_ff"],
+        proj_ap=series["proj_ap"],
+        proj_lake=series["proj_lake"],
+        proj_lo=series["proj_lo"],
+        proj_hi=series["proj_hi"],
+        title="Mississippi Lake water balance — last 7 days + 7-day outlook",
+        out_path=CHART_PNG,
+    )
+
+
+def render_chart_60(series: dict) -> bool:
+    days = series.get("hist_60_days") or []
+    if len(days) < 3 or not series.get("proj_60_days"):
+        return False
+    n = len(days)
+    historic_line = list(series.get("hist_60_historic") or []) + list(series.get("proj_60_historic") or [])
+    _render_balance_chart(
+        series,
+        hist_days_iso=days,
+        hist_ff=series["hist_60_ff"],
+        hist_ap=series["hist_60_ap"],
+        hist_lake=series["hist_60_lake"],
+        proj_days_iso=series["proj_60_days"],
+        proj_ff=series["proj_60_ff"],
+        proj_ap=series["proj_60_ap"],
+        proj_lake=series["proj_60_lake"],
+        proj_lo=series["proj_60_lo"],
+        proj_hi=series["proj_60_hi"],
+        title=f"Mississippi Lake water balance — last {n} days + 60-day outlook",
+        out_path=CHART_60_PNG,
+        weekly=True,
+        historic_line=historic_line,
+    )
+    return True
 
 
 def render_ytd_chart(series: dict) -> bool:
@@ -1441,6 +1681,59 @@ def render_watershed_full_chart(series: dict) -> bool:
 
 
 
+def _stride_from_end(n: int, step: int = 7) -> list[int]:
+    """Indices including first and last, then every `step` counting back from the end."""
+    if n <= 0:
+        return []
+    idxs = list(range(n - 1, -1, -step))
+    idxs.reverse()
+    if idxs[0] != 0:
+        idxs.insert(0, 0)
+    return idxs
+
+
+def _balance_table_body(
+    hist_days: list[str],
+    hist_lake: list[float],
+    hist_ff: list[float | None],
+    hist_ap: list[float | None],
+    proj_days: list[str],
+    proj_lake: list[float],
+    proj_ff: list[float],
+    proj_ap: list[float],
+    *,
+    weekly: bool = False,
+) -> str:
+    def _fmt_day(iso: str) -> str:
+        d = date.fromisoformat(iso)
+        return f"{d.strftime('%b')} {d.day}"
+
+    hist_idx = _stride_from_end(len(hist_days)) if weekly else range(len(hist_days))
+    proj_idx = _stride_from_end(len(proj_days)) if weekly else range(len(proj_days))
+    rows: list[str] = []
+    for i in hist_idx:
+        rows.append(
+            "<tr>"
+            f'<td>{_fmt_day(hist_days[i])}</td>'
+            f'<td class="num">{hist_lake[i]:.2f}</td>'
+            f'<td class="num">{"—" if hist_ff[i] is None else f"{hist_ff[i]:.1f}"}</td>'
+            f'<td class="num">{"—" if hist_ap[i] is None else f"{hist_ap[i]:.1f}"}</td>'
+            f'<td class="tag">Observed</td>'
+            "</tr>"
+        )
+    for i in proj_idx:
+        rows.append(
+            '<tr class="proj">'
+            f'<td>{_fmt_day(proj_days[i])}</td>'
+            f'<td class="num">{proj_lake[i]:.2f}</td>'
+            f'<td class="num">{proj_ff[i]:.1f}</td>'
+            f'<td class="num">{proj_ap[i]:.1f}</td>'
+            f'<td class="tag">Modeled</td>'
+            "</tr>"
+        )
+    return "\n                ".join(rows)
+
+
 def render_html(series: dict) -> None:
     lake = series["latest_lake"]
     ff = series["latest_ff"]
@@ -1453,6 +1746,7 @@ def render_html(series: dict) -> None:
     dcm = series["proj_change_cm"]
     when = series["generated_edt"]
     chart_src = f"chart.png?v={_asset_v(CHART_PNG)}"
+    chart_60_src = f"chart_60.png?v={_asset_v(CHART_60_PNG)}"
     ytd_src = f"ytd_chart.png?v={_asset_v(YTD_CHART_PNG)}"
     watershed_src = f"watershed_profile.png?v={_asset_v(WATERSHED_PNG)}"
     watershed_full_src = f"watershed_full_profile.png?v={_asset_v(WATERSHED_FULL_PNG)}"
@@ -1499,36 +1793,83 @@ def render_html(series: dict) -> None:
     ap_tick = ticker_markup(deltas.get("ap"), flat=0.4, digits=1)
     gap_tick = ticker_markup(deltas.get("gap"), flat=0.4, digits=1)
 
-    def _fmt_day(iso: str) -> str:
-        d = date.fromisoformat(iso)
-        return f"{d.strftime('%b')} {d.day}"
-
-    table_rows: list[str] = []
-    for d, lake_v, ff_v, ap_v in zip(
-        series["hist_days"], series["hist_lake"], series["hist_ff"], series["hist_ap"]
-    ):
-        table_rows.append(
-            "<tr>"
-            f'<td>{_fmt_day(d)}</td>'
-            f'<td class="num">{lake_v:.2f}</td>'
-            f'<td class="num">{ff_v:.1f}</td>'
-            f'<td class="num">{ap_v:.1f}</td>'
-            f'<td class="tag">Observed</td>'
-            "</tr>"
+    data_table_body = _balance_table_body(
+        series["hist_days"],
+        series["hist_lake"],
+        series["hist_ff"],
+        series["hist_ap"],
+        series["proj_days"],
+        series["proj_lake"],
+        series["proj_ff"],
+        series["proj_ap"],
+    )
+    hist_60_days = series.get("hist_60_days") or []
+    n_60 = len(hist_60_days)
+    has_60 = n_60 >= 3 and series.get("proj_60_days")
+    data_60_table_body = ""
+    if has_60:
+        data_60_table_body = _balance_table_body(
+            hist_60_days,
+            series["hist_60_lake"],
+            series["hist_60_ff"],
+            series["hist_60_ap"],
+            series["proj_60_days"],
+            series["proj_60_lake"],
+            series["proj_60_ff"],
+            series["proj_60_ap"],
+            weekly=True,
         )
-    for d, lake_v, ff_v, ap_v in zip(
-        series["proj_days"], series["proj_lake"], series["proj_ff"], series["proj_ap"]
-    ):
-        table_rows.append(
-            '<tr class="proj">'
-            f'<td>{_fmt_day(d)}</td>'
-            f'<td class="num">{lake_v:.2f}</td>'
-            f'<td class="num">{ff_v:.1f}</td>'
-            f'<td class="num">{ap_v:.1f}</td>'
-            f'<td class="tag">Modeled</td>'
-            "</tr>"
+    proj_60 = series.get("proj_60_end_lake")
+    dcm_60 = series.get("proj_60_change_cm")
+    n_60_flow = sum(1 for v in (series.get("hist_60_ff") or []) if v is not None)
+    hist_60_note = (
+        f"Lake review is {n_60} days."
+        + (
+            f" Inflow/outflow are observed for the last {n_60_flow} days (WSC realtime window); older discharge is not published yet."
+            if n_60_flow and n_60_flow < n_60
+            else ""
         )
-    data_table_body = "\n                ".join(table_rows)
+    )
+    if has_60 and proj_60 is not None and dcm_60 is not None:
+        section_60 = f"""          <tr>
+            <td style="padding:20px 32px 4px 32px;font-family:Georgia,serif;font-size:16px;color:#243036;">
+              <h2 style="margin:0 0 8px 0;font-size:20px;color:#1a3a4a;">60-day review &amp; outlook</h2>
+              <p style="margin:0 0 12px 0;font-size:15px;">Solid = observed. Dashed = next 60 days modeled. Same storage-routing model as the 7-day chart; rain bumps apply only while a weather forecast is available, then recession only. Uncertainty widens with time. Modeled level in 60 days: <strong>{proj_60:.2f} m</strong> ({dcm_60:+.0f} cm from today). {hist_60_note} <span style="color:#5a7a86;">Click the chart for full screen.</span></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 24px 8px 24px;" align="center">
+              <img src="{chart_60_src}" width="592" class="chart-thumb" alt="60-day inflow, outflow, and lake level chart with projection — click to enlarge" onclick="openChart('{chart_60_src}')" title="Click to view full screen">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:4px 32px 16px 32px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;color:#5a7078;">
+              <strong>Model:</strong> Δh ≈ k · (Q<sub>in</sub> − Q<sub>out</sub>) / A with A ≈ 25 km²; k calibrated to the last ~14 observed days. Beyond the weather-forecast window this is recession only. Not an official forecast.
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px 8px 32px;font-family:Georgia,serif;font-size:16px;color:#243036;">
+              <h2 style="margin:0 0 8px 0;font-size:20px;color:#1a3a4a;">60-day chart data</h2>
+              <p style="margin:0 0 12px 0;font-size:14px;color:#5a7078;font-family:Arial,Helvetica,sans-serif;">Weekly samples from the 60-day chart (every 7th day, plus the first and last of each window). Modeled rows are the 60-day outlook (not an official forecast).</p>
+              <table class="data-table" role="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Date</th>
+                    <th class="num" scope="col">Lake (m MASL)</th>
+                    <th class="num" scope="col">Inflow (m³/s)</th>
+                    <th class="num" scope="col">Outflow (m³/s)</th>
+                    <th scope="col">Source</th>
+                  </tr>
+                </thead>
+                <tbody>
+                {data_60_table_body}
+                </tbody>
+              </table>
+            </td>
+          </tr>
+"""
+    else:
+        section_60 = ""
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -1637,7 +1978,7 @@ def render_html(series: dict) -> None:
           <tr>
             <td style="padding:28px 32px 8px 32px;font-family:Georgia,serif;font-size:16px;line-height:1.55;color:#243036;">
               <p style="margin:0 0 14px 0;">People of the Lake,</p>
-              <p style="margin:0 0 14px 0;">Live briefing for Mississippi Lake. Gauges below are from MVCA / Water Survey of Canada. The chart includes a <strong>7-day model outlook</strong> (not an official forecast).</p>
+              <p style="margin:0 0 14px 0;">Live briefing for Mississippi Lake. Gauges below are from MVCA / Water Survey of Canada. The charts include a <strong>7-day model outlook</strong> and a <strong>60-day review &amp; outlook</strong> (not official forecasts).</p>
             </td>
           </tr>
           <tr>
@@ -1659,7 +2000,7 @@ def render_html(series: dict) -> None:
                   <p class="kpi-label">7-day outlook</p>
                   <p class="kpi-value" style="color:{outlook_color};">{proj:.2f}<span style="font-size:13px;font-weight:600;color:#5a7a86;"> m</span></p>
                   <div>{outlook_tick}</div>
-                  <p class="kpi-sub">{dcm:+.0f} cm modeled change<br>not an official forecast</p>
+                  <p class="kpi-sub">{dcm:+.0f} cm modeled change · 7 day<br>{f"{dcm_60:+.0f} cm modeled · 60 day" if has_60 and dcm_60 is not None else "not an official forecast"}</p>
                 </div>
                 <div class="kpi">
                   <p class="kpi-label">Inflow · Ferguson’s Falls</p>
@@ -1728,7 +2069,7 @@ def render_html(series: dict) -> None:
               </table>
             </td>
           </tr>
-          <tr>
+{section_60}          <tr>
             <td style="padding:20px 32px 4px 32px;font-family:Georgia,serif;font-size:16px;color:#243036;">
               <h2 style="margin:0 0 8px 0;font-size:20px;color:#1a3a4a;">Year-to-date Mississippi lake level</h2>
               <p style="margin:0 0 12px 0;font-size:15px;">Monthly mean lake level for {series.get("ytd_year") or ""} so far, compared with the long-term monthly average. <span style="color:#5a7a86;">Click the chart for full screen.</span></p>
@@ -1848,6 +2189,9 @@ def main() -> None:
     CACHE.write_text(json.dumps(series, indent=2))
     print("Rendering chart…")
     render_chart(series)
+    print("Rendering 60-day chart…")
+    if not render_chart_60(series):
+        print("  (skipped 60-day chart — not enough history)")
     print("Rendering YTD chart…")
     if not render_ytd_chart(series):
         print("  (skipped YTD chart — no monthly data)")
@@ -1860,7 +2204,7 @@ def main() -> None:
     print("Writing index.html…")
     render_html(series)
     print(f"Done. Lake={series['latest_lake']:.3f} FF={series['latest_ff']:.1f} gap={series['gap_now']:+.1f}")
-    print(f"Wrote {INDEX}, {CHART_PNG}, {YTD_CHART_PNG}, {WATERSHED_PNG}, and {WATERSHED_FULL_PNG}")
+    print(f"Wrote {INDEX}, {CHART_PNG}, {CHART_60_PNG}, {YTD_CHART_PNG}, {WATERSHED_PNG}, and {WATERSHED_FULL_PNG}")
 
 
 if __name__ == "__main__":

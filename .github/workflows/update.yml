@@ -2,8 +2,11 @@ name: Update lake briefing
 
 on:
   schedule:
-    # GitHub cron is UTC and often delayed on free plans; hourly keeps the page fresher.
-    - cron: "0 * * * *" # every hour, on the hour
+    # GitHub delays or drops jobs queued at minute 0 (highest load on shared runners).
+    # Two off-hour slots give a dropped tick another chance in the same hour.
+    # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
+    - cron: "23 * * * *"
+    - cron: "53 * * * *"
   workflow_dispatch: # manual "Run workflow" button
 
 permissions:
@@ -13,7 +16,8 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # Queue the next refresh instead of cancelling — a delayed schedule should still run.
+  cancel-in-progress: false
 
 jobs:
   update-and-deploy:

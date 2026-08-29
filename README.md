@@ -42,7 +42,7 @@ open index.html
 
 - Data: Water Survey of Canada (flows) + MVCA/KiWIS (lake level) + Open-Meteo (rain for projection bumps).
 - Projection is a simple storage-routing model — **not** an official MVCA forecast.
-- Schedule cron is **hourly** (UTC). GitHub Actions free cron can still lag by several minutes.
+- Schedule cron is **twice an hour** at :23 and :53 UTC (not :00 — GitHub often delays or drops jobs at the start of the hour). Cron is still best-effort; GitHub may skip slots under load.
 
 ## Disclaimer
 

@@ -2113,7 +2113,7 @@ def render_html(series: dict) -> None:
           </tr>
           <tr>
             <td style="background:#f0f4f6;padding:16px 32px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#6a7c84;border-top:1px solid #d5dde3;">
-              People of the Lake · Source on GitHub · Updated automatically ~8:00, 13:00, 18:00 America/Toronto
+              People of the Lake · Source on GitHub · Auto-refresh via GitHub Actions (about hourly; GitHub may skip slots)
             </td>
           </tr>
         </table>

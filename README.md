@@ -1,6 +1,6 @@
 # Mississippi Lake — People of the Lake
 
-Live cottager briefing for **Mississippi Lake, Ontario**: lake level, Ferguson’s Falls inflow, Appleton outflow, 7-day and 60-day outlook charts, and dock/boat guidance.
+Live cottager briefing for **Mississippi Lake, Ontario**: lake level, Ferguson’s Falls inflow, Appleton outflow, and 7-day and 60-day outlook charts.
 
 **Site (after you enable Pages):**  
 `https://<your-github-username>.github.io/mississippi-lake-levels/`

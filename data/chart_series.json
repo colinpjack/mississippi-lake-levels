@@ -1,5 +1,5 @@
 {
-  "generated_edt": "2026-09-03 05:57",
+  "generated_edt": "2026-09-03 06:09",
   "lake_as_of_iso": "2026-09-02T19:00:00+00:00",
   "lake_as_of_edt": "Sep 2, 3:00 PM EDT",
   "ff_as_of_iso": "2026-09-02T23:35:00+00:00",
@@ -1076,10 +1076,10 @@
     "stump": {
       "label": "Stump Lake",
       "kind": "level",
-      "value": 187.33733333333333,
-      "delta_7d": -6.870833333331916,
+      "value": 187.33633333333333,
+      "delta_7d": -6.9708333333323935,
       "unit": "m",
-      "as_of_iso": "2026-09-03T07:00:00+00:00"
+      "as_of_iso": "2026-09-03T10:00:00+00:00"
     },
     "widow": {
       "label": "Widow Lake",

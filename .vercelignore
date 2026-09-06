@@ -1,0 +1,11 @@
+.github
+.venv
+__pycache__
+*.pyc
+update_site.py
+requirements.txt
+README.md
+.gitignore
+data
+.env
+.mplconfig

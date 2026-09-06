@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Refresh Mississippi Lake cottager briefing for GitHub Pages.
+Refresh Mississippi Lake cottager briefing for Vercel.
 
 Fetches WSC + KiWIS gauges, rebuilds projection + chart, writes index.html.
 """

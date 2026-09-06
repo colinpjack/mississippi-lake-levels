@@ -2,8 +2,8 @@
 
 Live cottager briefing for **Mississippi Lake, Ontario**: lake level, Ferguson’s Falls inflow, Appleton outflow, and 7-day and 60-day outlook charts.
 
-**Site (after you enable Pages):**  
-`https://<your-github-username>.github.io/mississippi-lake-levels/`
+**Site:** hosted on Vercel (this repository is private).  
+GitHub Actions refreshes gauges about hourly and pushes the generated page; Vercel publishes the update.
 
 ## What’s included
 
@@ -14,19 +14,8 @@ Live cottager briefing for **Mississippi Lake, Ontario**: lake level, Ferguson�
 | `chart_60.png` | Same water-balance chart for the last ~60 days + 60-day outlook |
 | `update_site.py` | Fetches gauges + weather, rebuilds page |
 | `data/chart_series.json` | Latest numbers used for the chart |
-| `.github/workflows/update.yml` | Runs **hourly** and deploys Pages |
-
-## One-time GitHub setup
-
-1. Create the GitHub repo (if the script hasn’t already):
-   ```bash
-   gh repo create mississippi-lake-levels --public --source=. --remote=origin --push
-   ```
-2. In the repo on GitHub:
-   - **Settings → Pages → Build and deployment → Source:** **GitHub Actions**
-3. Allow the workflow to write:
-   - **Settings → Actions → General → Workflow permissions → Read and write**
-4. Trigger once: **Actions → Update lake briefing → Run workflow**
+| `vercel.json` | Static hosting on Vercel |
+| `.github/workflows/update.yml` | Refreshes gauges and pushes generated files |
 
 ## Local refresh
 

@@ -1,4 +1,4 @@
-# Mississippi Lake Levels — static site for GitHub Pages
+# Mississippi Lake Levels — static site for Vercel
 __pycache__/
 *.pyc
 .venv/
@@ -8,3 +8,4 @@ venv/
 data/*.json.bak
 *.log
 .env
+.vercel

@@ -2,8 +2,8 @@
 
 Live cottager briefing for **Mississippi Lake, Ontario**: lake level, Ferguson’s Falls inflow, Appleton outflow, and 7-day and 60-day outlook charts.
 
-**Site:** hosted on Vercel (this repository is private).  
-GitHub Actions refreshes gauges about hourly and pushes the generated page; Vercel publishes the update.
+**Site:** https://colinpjack.github.io/mississippi-lake-levels/  
+GitHub Actions refreshes gauges about hourly, commits the generated page, and deploys GitHub Pages.
 
 ## What’s included
 
@@ -14,8 +14,7 @@ GitHub Actions refreshes gauges about hourly and pushes the generated page; Verc
 | `chart_60.png` | Same water-balance chart for the last ~60 days + 60-day outlook |
 | `update_site.py` | Fetches gauges + weather, rebuilds page |
 | `data/chart_series.json` | Latest numbers used for the chart |
-| `vercel.json` | Static hosting on Vercel |
-| `.github/workflows/update.yml` | Refreshes gauges and pushes generated files |
+| `.github/workflows/update.yml` | Refreshes gauges, commits files, and deploys Pages |
 
 ## Local refresh
 

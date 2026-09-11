@@ -1,11 +1,16 @@
 {
-  "generated_edt": "2026-09-10 21:26",
+  "generated_edt": "2026-09-10 21:32",
   "lake_as_of_iso": "2026-09-10T19:00:00+00:00",
   "lake_as_of_edt": "Sep 10, 3:00 PM EDT",
   "ff_as_of_iso": "2026-09-11T00:35:00+00:00",
   "ff_as_of_edt": "Sep 10, 8:35 PM EDT",
   "ap_as_of_iso": "2026-09-11T00:45:00+00:00",
   "ap_as_of_edt": "Sep 10, 8:45 PM EDT",
+  "water_temp_c": 14.9,
+  "water_temp_delta_1d": 0.0,
+  "water_temp_delta_7d": 0.0,
+  "water_temp_as_of_iso": "2026-09-10T19:00:00+00:00",
+  "water_temp_as_of_edt": "Sep 10, 3:00 PM EDT",
   "hist_days": [
     "2026-09-04",
     "2026-09-05",
@@ -857,7 +862,7 @@
     "ap": 1.1190972222222229,
     "gap": -1.39340277777778,
     "historic_avg_m": -0.0030000000000143245,
-    "outlook_m": 1.3749254605954775e-05
+    "outlook_m": 0.0
   },
   "rain_bump": {
     "2026-09-15": 8.379999999999999

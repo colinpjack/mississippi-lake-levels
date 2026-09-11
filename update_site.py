@@ -1997,10 +1997,10 @@ def render_html(series: dict) -> None:
     .lightbox-hint {{ position:fixed; bottom:16px; left:50%; transform:translateX(-50%); color:rgba(255,255,255,0.7); font:12px/1.4 Arial,Helvetica,sans-serif; }}
     @media (max-width:640px) {{
       .kpi-grid {{ grid-template-columns:1fr 1fr; }}
-      .banner-row {{ flex-wrap:wrap; }}
+      .banner-row {{ flex-wrap:wrap; align-items:flex-start; }}
       .banner-copy {{ flex:1 1 100%; }}
-      .temp-dial {{ order:3; }}
-      .data-fresh {{ margin-left:auto; }}
+      .temp-dial {{ order:2; }}
+      .data-fresh {{ order:3; flex:1 1 auto; margin-left:auto; min-width:0; text-align:right; }}
       .banner-copy h1 {{ font-size:24px; }}
     }}
     @media (max-width:420px) {{

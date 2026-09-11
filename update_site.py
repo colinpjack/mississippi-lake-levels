@@ -1798,12 +1798,14 @@ def render_html(series: dict) -> None:
             band = "warm"
         else:
             band = "hot"
+        wt_f = wt_c * 9 / 5 + 32
         title = f"Mississippi Lake water temperature · gauge probe · {wt_as_of} · {basis}"
         return (
             f'<div class="temp-dial {band}" title="{title}" role="img" '
-            f'aria-label="Lake water {wt_c:.1f} degrees Celsius, {trend_txt} {basis}">'
+            f'aria-label="Lake water {wt_c:.1f} degrees Celsius, {wt_f:.0f} degrees Fahrenheit, {trend_txt} {basis}">'
             f'<p class="temp-dial-label">Water</p>'
-            f'<p class="temp-dial-value">{wt_c:.1f}<span>°</span></p>'
+            f'<p class="temp-dial-value">{wt_c:.1f}<span>°C</span></p>'
+            f'<p class="temp-dial-f">{wt_f:.0f}<span>°F</span></p>'
             f'<p class="temp-dial-trend {trend_cls}">{arrow} {trend_txt}</p>'
             f"</div>"
         )
@@ -1959,7 +1961,7 @@ def render_html(series: dict) -> None:
     .banner-copy {{ flex:1; min-width:0; }}
     .banner-copy h1 {{ margin:0; font-family:Georgia,serif; font-size:28px; line-height:1.15; font-weight:normal; color:#ffffff; }}
     .temp-dial {{
-      flex:0 0 92px; width:92px; height:92px; border-radius:50%;
+      flex:0 0 100px; width:100px; height:100px; border-radius:50%;
       display:flex; flex-direction:column; align-items:center; justify-content:center;
       text-align:center; box-sizing:border-box; border:3px solid #6ec3d4;
       background:radial-gradient(circle at 38% 32%, #2f6f7e 0%, #1a3a4a 78%);
@@ -1969,10 +1971,12 @@ def render_html(series: dict) -> None:
     .temp-dial.cool {{ border-color:#6ec3d4; }}
     .temp-dial.warm {{ border-color:#e6c36a; }}
     .temp-dial.hot {{ border-color:#e07a5f; }}
-    .temp-dial-label {{ margin:0; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:#8eb8c8; }}
-    .temp-dial-value {{ margin:2px 0 0 0; font-size:22px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums; }}
-    .temp-dial-value span {{ font-size:13px; font-weight:600; }}
-    .temp-dial-trend {{ margin:5px 0 0 0; font-size:11px; font-weight:700; letter-spacing:0.02em; }}
+    .temp-dial-label {{ margin:0; font-size:8px; letter-spacing:0.1em; text-transform:uppercase; color:#8eb8c8; }}
+    .temp-dial-value {{ margin:1px 0 0 0; font-size:18px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums; }}
+    .temp-dial-value span {{ font-size:11px; font-weight:600; }}
+    .temp-dial-f {{ margin:2px 0 0 0; font-size:13px; font-weight:700; line-height:1; color:#d5e8ee; font-variant-numeric:tabular-nums; }}
+    .temp-dial-f span {{ font-size:10px; font-weight:600; }}
+    .temp-dial-trend {{ margin:4px 0 0 0; font-size:10px; font-weight:700; letter-spacing:0.02em; }}
     .temp-dial-trend.up {{ color:#e6c36a; }}
     .temp-dial-trend.down {{ color:#7dcea0; }}
     .temp-dial-trend.flat {{ color:#8eb8c8; }}

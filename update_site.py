@@ -42,6 +42,7 @@ HISTORIC_DOY = DATA / "historic_doy_means.json"
 AREA_M2 = 25e6  # Mississippi Lake ~25 km²
 CM_PER_M3S_DAY = 86400 / AREA_M2 * 100
 LAKE_TS = 1404042
+WATER_TEMP_TS = 13800042  # Mississippi Lake water temp TW 102.Edited (°C)
 CROTCH_TS = 16468042  # Crotch GOES (MVCA20) — more reliable than main dam gauge
 DALHOUSIE_TS = 54708042  # Dalhousie outlet Public stage (MASL)
 EARLY_JULY_LEVEL = 134.10
@@ -546,6 +547,11 @@ def build_series() -> dict:
     ff, ff_ts = fetch_wsc_flow("02KF001", start, end)
     ap, ap_ts = fetch_wsc_flow("02KF006", start, end)
     lake, lake_ts = fetch_lake_daily(frm, to)
+    try:
+        water_temp, wt_ts = fetch_lake_daily(frm, to, ts_id=WATER_TEMP_TS)
+    except Exception as e:
+        print(f"  Water temp fetch failed: {e}")
+        water_temp, wt_ts = {}, None
 
     # Flow gauges often publish today's partial day before KiWIS has a lake day.
     # Only chart days that have both lake level and Ferguson inflow.
@@ -674,6 +680,12 @@ def build_series() -> dict:
     lake_iso, lake_edt = _gauge_stamp(lake_ts)
     ff_iso, ff_edt = _gauge_stamp(ff_ts)
     ap_iso, ap_edt = _gauge_stamp(ap_ts)
+    wt_iso, wt_edt = _gauge_stamp(wt_ts)
+    wt_keys = sorted(water_temp)
+    wt_latest = water_temp[wt_keys[-1]] if wt_keys else None
+    wt_delta_1d = (water_temp[wt_keys[-1]] - water_temp[wt_keys[-2]]) if len(wt_keys) >= 2 else None
+    wt_week = [k for k in wt_keys if k <= (date.fromisoformat(wt_keys[-1]) - timedelta(days=7)).isoformat()] if wt_keys else []
+    wt_delta_7d = (water_temp[wt_keys[-1]] - water_temp[wt_week[-1]]) if wt_keys and wt_week else None
 
     watershed = fetch_watershed_core(frm, to, ff, ap, lake)
     # Attach the same as-of stamps we already computed for header freshness
@@ -702,6 +714,11 @@ def build_series() -> dict:
         "ff_as_of_edt": ff_edt,
         "ap_as_of_iso": ap_iso,
         "ap_as_of_edt": ap_edt,
+        "water_temp_c": wt_latest,
+        "water_temp_delta_1d": wt_delta_1d,
+        "water_temp_delta_7d": wt_delta_7d,
+        "water_temp_as_of_iso": wt_iso,
+        "water_temp_as_of_edt": wt_edt,
         "hist_days": days,
         "hist_ff": hist_ff,
         "hist_ap": hist_ap,
@@ -1756,7 +1773,42 @@ def render_html(series: dict) -> None:
     ff_as_of_edt = series.get("ff_as_of_edt") or "unavailable"
     ap_as_of_iso = series.get("ap_as_of_iso") or ""
     ap_as_of_edt = series.get("ap_as_of_edt") or "unavailable"
+    wt_c = series.get("water_temp_c")
+    wt_d1 = series.get("water_temp_delta_1d")
+    wt_d7 = series.get("water_temp_delta_7d")
+    wt_as_of = series.get("water_temp_as_of_edt") or ""
     deltas = series.get("deltas") or {}
+
+    def _temp_dial() -> str:
+        if wt_c is None:
+            return ""
+        delta = wt_d1 if wt_d1 is not None and abs(wt_d1) >= 0.2 else wt_d7
+        basis = "vs yesterday" if delta is wt_d1 and wt_d1 is not None and abs(wt_d1) >= 0.2 else "vs 7 days ago"
+        if delta is None or abs(delta) < 0.2:
+            arrow, trend_cls, trend_txt, basis = "–", "flat", "steady", "little change"
+        elif delta > 0:
+            arrow, trend_cls, trend_txt = "▲", "up", f"{delta:+.1f}°"
+        else:
+            arrow, trend_cls, trend_txt = "▼", "down", f"{delta:+.1f}°"
+        if wt_c < 10:
+            band = "cold"
+        elif wt_c < 18:
+            band = "cool"
+        elif wt_c < 24:
+            band = "warm"
+        else:
+            band = "hot"
+        title = f"Mississippi Lake water temperature · gauge probe · {wt_as_of} · {basis}"
+        return (
+            f'<div class="temp-dial {band}" title="{title}" role="img" '
+            f'aria-label="Lake water {wt_c:.1f} degrees Celsius, {trend_txt} {basis}">'
+            f'<p class="temp-dial-label">Water</p>'
+            f'<p class="temp-dial-value">{wt_c:.1f}<span>°</span></p>'
+            f'<p class="temp-dial-trend {trend_cls}">{arrow} {trend_txt}</p>'
+            f"</div>"
+        )
+
+    temp_dial = _temp_dial()
     # Date label for the glance header — prefer latest observed gauge day
     try:
         glance_day = date.fromisoformat(series["hist_days"][-1])
@@ -1903,6 +1955,27 @@ def render_html(series: dict) -> None:
     .gauge-fresh-age.fresh-stale {{ color:#e07a5f; }}
     .gauge-fresh-age.fresh-unknown {{ color:#b7d0da; }}
     .gauge-fresh-when {{ margin:2px 0 0 0; font-size:10px; color:#7a96a3; line-height:1.25; }}
+    .banner-row {{ display:flex; align-items:center; gap:14px; }}
+    .banner-copy {{ flex:1; min-width:0; }}
+    .banner-copy h1 {{ margin:0; font-family:Georgia,serif; font-size:28px; line-height:1.15; font-weight:normal; color:#ffffff; }}
+    .temp-dial {{
+      flex:0 0 92px; width:92px; height:92px; border-radius:50%;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      text-align:center; box-sizing:border-box; border:3px solid #6ec3d4;
+      background:radial-gradient(circle at 38% 32%, #2f6f7e 0%, #1a3a4a 78%);
+      font-family:Arial,Helvetica,sans-serif; color:#ffffff;
+    }}
+    .temp-dial.cold {{ border-color:#7eb8e8; }}
+    .temp-dial.cool {{ border-color:#6ec3d4; }}
+    .temp-dial.warm {{ border-color:#e6c36a; }}
+    .temp-dial.hot {{ border-color:#e07a5f; }}
+    .temp-dial-label {{ margin:0; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:#8eb8c8; }}
+    .temp-dial-value {{ margin:2px 0 0 0; font-size:22px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums; }}
+    .temp-dial-value span {{ font-size:13px; font-weight:600; }}
+    .temp-dial-trend {{ margin:5px 0 0 0; font-size:11px; font-weight:700; letter-spacing:0.02em; }}
+    .temp-dial-trend.up {{ color:#e6c36a; }}
+    .temp-dial-trend.down {{ color:#7dcea0; }}
+    .temp-dial-trend.flat {{ color:#8eb8c8; }}
     .data-table {{ width:100%; border-collapse:collapse; font-family:Arial,Helvetica,sans-serif; font-size:13px; color:#243036; }}
     .data-table th {{ text-align:left; padding:8px 6px; border-bottom:2px solid #d5dde3; color:#5a7a86; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; font-weight:700; }}
     .data-table td {{ padding:7px 6px; border-bottom:1px solid #e4ebef; }}
@@ -1920,6 +1993,11 @@ def render_html(series: dict) -> None:
     .lightbox-hint {{ position:fixed; bottom:16px; left:50%; transform:translateX(-50%); color:rgba(255,255,255,0.7); font:12px/1.4 Arial,Helvetica,sans-serif; }}
     @media (max-width:640px) {{
       .kpi-grid {{ grid-template-columns:1fr 1fr; }}
+      .banner-row {{ flex-wrap:wrap; }}
+      .banner-copy {{ flex:1 1 100%; }}
+      .temp-dial {{ order:3; }}
+      .data-fresh {{ margin-left:auto; }}
+      .banner-copy h1 {{ font-size:24px; }}
     }}
     @media (max-width:420px) {{
       .kpi-grid {{ grid-template-columns:1fr; }}
@@ -1939,14 +2017,14 @@ def render_html(series: dict) -> None:
         <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #d5dde3;">
           <tr>
             <td style="background:#1a3a4a;padding:28px 32px 24px 32px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td style="vertical-align:top;padding-right:16px;">
+              <div class="banner-row">
+                <div class="banner-copy">
                     <p style="margin:0 0 6px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#8eb8c8;">Mississippi Lake · Ontario</p>
-                    <h1 style="margin:0;font-family:Georgia,serif;font-size:28px;line-height:1.25;font-weight:normal;color:#ffffff;">Water Update for Mississippi Lake Cottagers</h1>
-                    <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#b7d0da;">Updated {when} EDT · auto-refreshes hourly, but dependent on MVCA data updates</p>
-                  </td>
-                  <td style="vertical-align:middle;width:1%;">
+                    <h1>Water Update</h1>
+                    <p style="margin:6px 0 0 0;font-family:Georgia,serif;font-size:16px;line-height:1.3;color:#d5e8ee;">for Mississippi Lake cottagers</p>
+                    <p style="margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.4;color:#b7d0da;">Updated {when} EDT<br>Hourly · MVCA gauges</p>
+                </div>
+                {temp_dial}
                     <div class="data-fresh" title="How fresh each gauge reading is">
                       <p class="data-fresh-heading">Gauge freshness</p>
                       <div class="gauge-fresh" data-as-of="{lake_as_of_iso}">
@@ -1965,9 +2043,7 @@ def render_html(series: dict) -> None:
                         <p class="gauge-fresh-when">{ap_as_of_edt}</p>
                       </div>
                     </div>
-                  </td>
-                </tr>
-              </table>
+              </div>
             </td>
           </tr>
           <tr>

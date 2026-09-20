@@ -1,11 +1,11 @@
 {
-  "generated_edt": "2026-09-20 02:32",
+  "generated_edt": "2026-09-20 03:07",
   "lake_as_of_iso": "2026-09-19T19:00:00+00:00",
   "lake_as_of_edt": "Sep 19, 3:00 PM EDT",
-  "ff_as_of_iso": "2026-09-20T05:35:00+00:00",
-  "ff_as_of_edt": "Sep 20, 1:35 AM EDT",
-  "ap_as_of_iso": "2026-09-20T05:45:00+00:00",
-  "ap_as_of_edt": "Sep 20, 1:45 AM EDT",
+  "ff_as_of_iso": "2026-09-20T06:35:00+00:00",
+  "ff_as_of_edt": "Sep 20, 2:35 AM EDT",
+  "ap_as_of_iso": "2026-09-20T06:45:00+00:00",
+  "ap_as_of_edt": "Sep 20, 2:45 AM EDT",
   "water_temp_c": 14.8,
   "water_temp_delta_1d": 0.0,
   "water_temp_delta_7d": -0.09999999999999964,
@@ -927,18 +927,18 @@
     "ferguson": {
       "label": "Ferguson\u2019s Falls",
       "kind": "flow",
-      "value": 23.876470588235293,
-      "delta_7d": -5.889848856209152,
+      "value": 23.857499999999998,
+      "delta_7d": -5.908819444444447,
       "unit": "m3s",
-      "as_of_iso": "2026-09-20T05:35:00+00:00"
+      "as_of_iso": "2026-09-20T06:35:00+00:00"
     },
     "appleton": {
       "label": "Appleton",
       "kind": "flow",
-      "value": 26.50857142857143,
-      "delta_7d": -7.069553571428571,
+      "value": 26.464634146341464,
+      "delta_7d": -7.113490853658536,
       "unit": "m3s",
-      "as_of_iso": "2026-09-20T05:45:00+00:00"
+      "as_of_iso": "2026-09-20T06:45:00+00:00"
     }
   },
   "watershed_full": {
@@ -969,18 +969,18 @@
     "ferguson": {
       "label": "Ferguson\u2019s Falls",
       "kind": "flow",
-      "value": 23.876470588235293,
-      "delta_7d": -5.889848856209152,
+      "value": 23.857499999999998,
+      "delta_7d": -5.908819444444447,
       "unit": "m3s",
-      "as_of_iso": "2026-09-20T05:35:00+00:00"
+      "as_of_iso": "2026-09-20T06:35:00+00:00"
     },
     "appleton": {
       "label": "Appleton",
       "kind": "flow",
-      "value": 26.50857142857143,
-      "delta_7d": -7.069553571428571,
+      "value": 26.464634146341464,
+      "delta_7d": -7.113490853658536,
       "unit": "m3s",
-      "as_of_iso": "2026-09-20T05:45:00+00:00"
+      "as_of_iso": "2026-09-20T06:45:00+00:00"
     },
     "shabomeka": {
       "label": "Shabomeka Lake",
@@ -1081,10 +1081,10 @@
     "stump": {
       "label": "Stump Lake",
       "kind": "level",
-      "value": 187.35408333333334,
-      "delta_7d": -0.820833333332871,
+      "value": 187.345,
+      "delta_7d": -3.195833333333553,
       "unit": "m",
-      "as_of_iso": "2026-09-20T04:00:00+00:00"
+      "as_of_iso": "2026-09-20T07:00:00+00:00"
     },
     "widow": {
       "label": "Widow Lake",
@@ -1121,18 +1121,18 @@
     "marble": {
       "label": "Marble Lake outflow",
       "kind": "flow",
-      "value": 1.7223529411764706,
-      "delta_7d": -0.3896609477124182,
+      "value": 1.7215,
+      "delta_7d": -0.3905138888888888,
       "unit": "m3s",
-      "as_of_iso": "2026-09-20T05:35:00+00:00"
+      "as_of_iso": "2026-09-20T06:35:00+00:00"
     },
     "dalhousie_out": {
       "label": "Dalhousie outlet",
       "kind": "flow",
-      "value": 15.637313432835821,
-      "delta_7d": -3.188381011608623,
+      "value": 15.631645569620252,
+      "delta_7d": -3.194048874824192,
       "unit": "m3s",
-      "as_of_iso": "2026-09-20T05:30:00+00:00"
+      "as_of_iso": "2026-09-20T06:30:00+00:00"
     },
     "galetta": {
       "label": "Galetta",

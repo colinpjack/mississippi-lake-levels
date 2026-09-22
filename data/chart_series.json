@@ -1,5 +1,5 @@
 {
-  "generated_edt": "2026-09-22 11:03",
+  "generated_edt": "2026-09-22 11:11",
   "lake_as_of_iso": "2026-09-22T11:00:00+00:00",
   "lake_as_of_edt": "Sep 22, 7:00 AM EDT",
   "ff_as_of_iso": "2026-09-22T14:35:00+00:00",
@@ -862,7 +862,7 @@
     "ap": -0.037361947791165306,
     "gap": -0.7463186077643904,
     "historic_avg_m": 0.0020000000000095497,
-    "outlook_m": -0.019578959484164216
+    "outlook_m": 0.0
   },
   "rain_bump": {
     "2026-10-04": 10.12
@@ -905,18 +905,18 @@
     "crotch": {
       "label": "Crotch Lake",
       "kind": "level",
-      "value": 237.8815,
-      "delta_7d": -41.12916666666706,
+      "value": 237.87972727272728,
+      "delta_7d": -41.30643939393792,
       "unit": "m",
-      "as_of_iso": "2026-09-22T14:03:25+00:00"
+      "as_of_iso": "2026-09-22T15:03:25+00:00"
     },
     "dalhousie": {
       "label": "Dalhousie Lake",
       "kind": "level",
-      "value": 156.59131067961164,
-      "delta_7d": -16.010945927723697,
+      "value": 156.59033913043478,
+      "delta_7d": -16.108100845409012,
       "unit": "m",
-      "as_of_iso": "2026-09-22T13:30:00+00:00"
+      "as_of_iso": "2026-09-22T14:30:00+00:00"
     },
     "mississippi": {
       "label": "Mississippi Lake",
@@ -947,18 +947,18 @@
     "crotch": {
       "label": "Crotch Lake",
       "kind": "level",
-      "value": 237.8815,
-      "delta_7d": -41.12916666666706,
+      "value": 237.87972727272728,
+      "delta_7d": -41.30643939393792,
       "unit": "m",
-      "as_of_iso": "2026-09-22T14:03:25+00:00"
+      "as_of_iso": "2026-09-22T15:03:25+00:00"
     },
     "dalhousie": {
       "label": "Dalhousie Lake",
       "kind": "level",
-      "value": 156.59131067961164,
-      "delta_7d": -16.010945927723697,
+      "value": 156.59033913043478,
+      "delta_7d": -16.108100845409012,
       "unit": "m",
-      "as_of_iso": "2026-09-22T13:30:00+00:00"
+      "as_of_iso": "2026-09-22T14:30:00+00:00"
     },
     "mississippi": {
       "label": "Mississippi Lake",
@@ -987,10 +987,10 @@
     "shabomeka": {
       "label": "Shabomeka Lake",
       "kind": "level",
-      "value": 270.76,
-      "delta_7d": -14.750000000003638,
+      "value": 270.7581818181818,
+      "delta_7d": -14.931818181821654,
       "unit": "m",
-      "as_of_iso": "2026-09-22T11:00:00+00:00"
+      "as_of_iso": "2026-09-22T15:00:00+00:00"
     },
     "mazinaw": {
       "label": "Mazinaw Lake",
@@ -998,15 +998,15 @@
       "value": 267.79,
       "delta_7d": -2.375000000000682,
       "unit": "m",
-      "as_of_iso": "2026-09-22T11:00:00+00:00"
+      "as_of_iso": "2026-09-22T15:00:00+00:00"
     },
     "kashwakamak": {
       "label": "Kashwakamak Lake",
       "kind": "level",
-      "value": 261.07142857142856,
-      "delta_7d": 1.1845238095247623,
+      "value": 261.0709090909091,
+      "delta_7d": 1.1325757575775697,
       "unit": "m",
-      "as_of_iso": "2026-09-22T11:00:00+00:00"
+      "as_of_iso": "2026-09-22T15:00:00+00:00"
     },
     "mississagagon": {
       "label": "Mississagagon Lake",
@@ -1046,7 +1046,7 @@
       "value": 247.88,
       "delta_7d": -9.000000000000341,
       "unit": "m",
-      "as_of_iso": "2026-09-22T11:00:00+00:00"
+      "as_of_iso": "2026-09-22T15:00:00+00:00"
     },
     "palmerston": {
       "label": "Palmerston Lake",
@@ -1094,7 +1094,7 @@
       "value": 183.81,
       "delta_7d": -8.916666666667084,
       "unit": "m",
-      "as_of_iso": "2026-09-22T11:00:00+00:00"
+      "as_of_iso": "2026-09-22T15:00:00+00:00"
     },
     "clayton": {
       "label": "Clayton Lake",
@@ -1107,10 +1107,10 @@
     "lanark": {
       "label": "Lanark",
       "kind": "level",
-      "value": 143.83,
-      "delta_7d": -1.0694444444425244,
+      "value": 143.82949152542375,
+      "delta_7d": -1.1202919020689706,
       "unit": "m",
-      "as_of_iso": "2026-09-22T13:40:00+00:00"
+      "as_of_iso": "2026-09-22T14:40:00+00:00"
     },
     "carleton": {
       "label": "Carleton Place",

@@ -1,5 +1,5 @@
 {
-  "generated_edt": "2026-09-23 02:08",
+  "generated_edt": "2026-09-23 02:47",
   "lake_as_of_iso": "2026-09-22T19:00:00+00:00",
   "lake_as_of_edt": "Sep 22, 3:00 PM EDT",
   "ff_as_of_iso": "2026-09-23T05:35:00+00:00",
@@ -862,7 +862,7 @@
     "ap": -0.359375,
     "gap": -0.7381944444444422,
     "historic_avg_m": 0.0020000000000095497,
-    "outlook_m": -1.3647688376750011e-05
+    "outlook_m": 0.0
   },
   "rain_bump": {},
   "ytd_months": [
@@ -903,18 +903,18 @@
     "crotch": {
       "label": "Crotch Lake",
       "kind": "level",
-      "value": 237.829,
-      "delta_7d": -40.47499999999786,
+      "value": 237.83100000000002,
+      "delta_7d": -40.27499999999691,
       "unit": "m",
-      "as_of_iso": "2026-09-23T05:03:25+00:00"
+      "as_of_iso": "2026-09-23T06:03:25+00:00"
     },
     "dalhousie": {
       "label": "Dalhousie Lake",
       "kind": "level",
-      "value": 156.57758303886925,
-      "delta_7d": -17.383710001962527,
+      "value": 156.55771428571427,
+      "delta_7d": -17.908432539684327,
       "unit": "m",
-      "as_of_iso": "2026-09-23T04:30:00+00:00"
+      "as_of_iso": "2026-09-23T05:30:00+00:00"
     },
     "mississippi": {
       "label": "Mississippi Lake",
@@ -945,18 +945,18 @@
     "crotch": {
       "label": "Crotch Lake",
       "kind": "level",
-      "value": 237.829,
-      "delta_7d": -40.47499999999786,
+      "value": 237.83100000000002,
+      "delta_7d": -40.27499999999691,
       "unit": "m",
-      "as_of_iso": "2026-09-23T05:03:25+00:00"
+      "as_of_iso": "2026-09-23T06:03:25+00:00"
     },
     "dalhousie": {
       "label": "Dalhousie Lake",
       "kind": "level",
-      "value": 156.57758303886925,
-      "delta_7d": -17.383710001962527,
+      "value": 156.55771428571427,
+      "delta_7d": -17.908432539684327,
       "unit": "m",
-      "as_of_iso": "2026-09-23T04:30:00+00:00"
+      "as_of_iso": "2026-09-23T05:30:00+00:00"
     },
     "mississippi": {
       "label": "Mississippi Lake",
@@ -1065,10 +1065,10 @@
     "summit": {
       "label": "Summit Lake",
       "kind": "level",
-      "value": 280.63641666666666,
-      "delta_7d": -5.116666666668834,
+      "value": 280.632,
+      "delta_7d": -5.162500000000136,
       "unit": "m",
-      "as_of_iso": "2026-09-23T04:00:00+00:00"
+      "as_of_iso": "2026-09-23T05:00:00+00:00"
     },
     "mosque": {
       "label": "Mosque Lake",
@@ -1105,10 +1105,10 @@
     "lanark": {
       "label": "Lanark",
       "kind": "level",
-      "value": 143.82433566433568,
-      "delta_7d": -1.635878010876013,
+      "value": 143.81799999999998,
+      "delta_7d": -2.8388888888912334,
       "unit": "m",
-      "as_of_iso": "2026-09-23T04:40:00+00:00"
+      "as_of_iso": "2026-09-23T05:40:00+00:00"
     },
     "carleton": {
       "label": "Carleton Place",

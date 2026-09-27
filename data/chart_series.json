@@ -1,11 +1,11 @@
 {
-  "generated_edt": "2026-09-27 01:52",
+  "generated_edt": "2026-09-27 04:24",
   "lake_as_of_iso": "2026-09-26T19:00:00+00:00",
   "lake_as_of_edt": "Sep 26, 3:00 PM EDT",
-  "ff_as_of_iso": "2026-09-27T04:35:00+00:00",
-  "ff_as_of_edt": "Sep 27, 12:35 AM EDT",
-  "ap_as_of_iso": "2026-09-27T04:45:00+00:00",
-  "ap_as_of_edt": "Sep 27, 12:45 AM EDT",
+  "ff_as_of_iso": "2026-09-27T07:35:00+00:00",
+  "ff_as_of_edt": "Sep 27, 3:35 AM EDT",
+  "ap_as_of_iso": "2026-09-27T06:45:00+00:00",
+  "ap_as_of_edt": "Sep 27, 2:45 AM EDT",
   "water_temp_c": 14.3,
   "water_temp_delta_1d": 0.0,
   "water_temp_delta_7d": -0.4708333333333332,
@@ -194,7 +194,7 @@
     null,
     null,
     null,
-    null,
+    37.539912280701756,
     37.90486111111111,
     38.04097222222222,
     37.930902777777774,
@@ -256,7 +256,7 @@
     null,
     null,
     null,
-    null,
+    40.631578947368425,
     43.09722222222222,
     41.922916666666666,
     41.10381944444445,
@@ -903,18 +903,18 @@
     "crotch": {
       "label": "Crotch Lake",
       "kind": "level",
-      "value": 237.684,
-      "delta_7d": -30.471428571428305,
+      "value": 237.6825,
+      "delta_7d": -30.6214285714276,
       "unit": "m",
-      "as_of_iso": "2026-09-27T05:03:25+00:00"
+      "as_of_iso": "2026-09-27T08:03:25+00:00"
     },
     "dalhousie": {
       "label": "Dalhousie Lake",
       "kind": "level",
-      "value": 156.47128621908126,
-      "delta_7d": -19.96616975854124,
+      "value": 156.43603225806453,
+      "delta_7d": -21.536704749101432,
       "unit": "m",
-      "as_of_iso": "2026-09-27T04:30:00+00:00"
+      "as_of_iso": "2026-09-27T07:30:00+00:00"
     },
     "mississippi": {
       "label": "Mississippi Lake",
@@ -927,36 +927,36 @@
     "ferguson": {
       "label": "Ferguson\u2019s Falls",
       "kind": "flow",
-      "value": 15.541071428571428,
-      "delta_7d": -7.918650793650794,
+      "value": 15.468478260869565,
+      "delta_7d": -7.991243961352657,
       "unit": "m3s",
-      "as_of_iso": "2026-09-27T04:35:00+00:00"
+      "as_of_iso": "2026-09-27T07:35:00+00:00"
     },
     "appleton": {
       "label": "Appleton",
       "kind": "flow",
-      "value": 16.23448275862069,
-      "delta_7d": -9.489822796934867,
+      "value": 16.31219512195122,
+      "delta_7d": -9.412110433604337,
       "unit": "m3s",
-      "as_of_iso": "2026-09-27T04:45:00+00:00"
+      "as_of_iso": "2026-09-27T06:45:00+00:00"
     }
   },
   "watershed_full": {
     "crotch": {
       "label": "Crotch Lake",
       "kind": "level",
-      "value": 237.684,
-      "delta_7d": -30.471428571428305,
+      "value": 237.6825,
+      "delta_7d": -30.6214285714276,
       "unit": "m",
-      "as_of_iso": "2026-09-27T05:03:25+00:00"
+      "as_of_iso": "2026-09-27T08:03:25+00:00"
     },
     "dalhousie": {
       "label": "Dalhousie Lake",
       "kind": "level",
-      "value": 156.47128621908126,
-      "delta_7d": -19.96616975854124,
+      "value": 156.43603225806453,
+      "delta_7d": -21.536704749101432,
       "unit": "m",
-      "as_of_iso": "2026-09-27T04:30:00+00:00"
+      "as_of_iso": "2026-09-27T07:30:00+00:00"
     },
     "mississippi": {
       "label": "Mississippi Lake",
@@ -969,18 +969,18 @@
     "ferguson": {
       "label": "Ferguson\u2019s Falls",
       "kind": "flow",
-      "value": 15.541071428571428,
-      "delta_7d": -7.918650793650794,
+      "value": 15.468478260869565,
+      "delta_7d": -7.991243961352657,
       "unit": "m3s",
-      "as_of_iso": "2026-09-27T04:35:00+00:00"
+      "as_of_iso": "2026-09-27T07:35:00+00:00"
     },
     "appleton": {
       "label": "Appleton",
       "kind": "flow",
-      "value": 16.23448275862069,
-      "delta_7d": -9.489822796934867,
+      "value": 16.31219512195122,
+      "delta_7d": -9.412110433604337,
       "unit": "m3s",
-      "as_of_iso": "2026-09-27T04:45:00+00:00"
+      "as_of_iso": "2026-09-27T06:45:00+00:00"
     },
     "shabomeka": {
       "label": "Shabomeka Lake",
@@ -1065,10 +1065,10 @@
     "summit": {
       "label": "Summit Lake",
       "kind": "level",
-      "value": 280.59921739130436,
-      "delta_7d": -6.607427536232535,
+      "value": 280.59633333333335,
+      "delta_7d": -5.970833333333303,
       "unit": "m",
-      "as_of_iso": "2026-09-27T03:00:00+00:00"
+      "as_of_iso": "2026-09-27T07:00:00+00:00"
     },
     "mosque": {
       "label": "Mosque Lake",
@@ -1081,10 +1081,10 @@
     "stump": {
       "label": "Stump Lake",
       "kind": "level",
-      "value": 187.30954166666666,
-      "delta_7d": -4.454166666667447,
+      "value": 187.328,
+      "delta_7d": -0.2458333333322571,
       "unit": "m",
-      "as_of_iso": "2026-09-27T04:00:00+00:00"
+      "as_of_iso": "2026-09-27T07:00:00+00:00"
     },
     "widow": {
       "label": "Widow Lake",
@@ -1105,10 +1105,10 @@
     "lanark": {
       "label": "Lanark",
       "kind": "level",
-      "value": 143.9053146853147,
-      "delta_7d": 4.156468531468249,
+      "value": 143.9105882352941,
+      "delta_7d": 5.73937908496589,
       "unit": "m",
-      "as_of_iso": "2026-09-27T04:40:00+00:00"
+      "as_of_iso": "2026-09-27T07:40:00+00:00"
     },
     "carleton": {
       "label": "Carleton Place",
@@ -1121,18 +1121,18 @@
     "marble": {
       "label": "Marble Lake outflow",
       "kind": "flow",
-      "value": 1.4792857142857143,
-      "delta_7d": -0.21817956349206336,
+      "value": 1.4778260869565216,
+      "delta_7d": -0.21963919082125605,
       "unit": "m3s",
-      "as_of_iso": "2026-09-27T04:35:00+00:00"
+      "as_of_iso": "2026-09-27T07:35:00+00:00"
     },
     "dalhousie_out": {
       "label": "Dalhousie outlet",
       "kind": "flow",
-      "value": 10.034545454545455,
-      "delta_7d": -5.396704545454545,
+      "value": 9.915824175824175,
+      "delta_7d": -5.515425824175825,
       "unit": "m3s",
-      "as_of_iso": "2026-09-27T04:30:00+00:00"
+      "as_of_iso": "2026-09-27T07:30:00+00:00"
     },
     "galetta": {
       "label": "Galetta",

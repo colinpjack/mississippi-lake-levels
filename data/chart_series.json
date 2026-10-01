@@ -1,5 +1,5 @@
 {
-  "generated_edt": "2026-10-01 03:18",
+  "generated_edt": "2026-10-01 03:54",
   "lake_as_of_iso": "2026-09-30T19:00:00+00:00",
   "lake_as_of_edt": "Sep 30, 3:00 PM EDT",
   "ff_as_of_iso": "2026-10-01T06:35:00+00:00",
@@ -862,7 +862,7 @@
     "ap": -0.9190972222222218,
     "gap": 0.11458333333333215,
     "historic_avg_m": 0.0,
-    "outlook_m": 0.00504128335171572
+    "outlook_m": 0.0
   },
   "rain_bump": {},
   "ytd_months": [

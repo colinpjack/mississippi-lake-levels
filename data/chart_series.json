@@ -1,5 +1,5 @@
 {
-  "generated_edt": "2026-10-18 07:26",
+  "generated_edt": "2026-10-18 07:46",
   "lake_as_of_iso": "2026-10-18T11:00:00+00:00",
   "lake_as_of_edt": "Oct 18, 7:00 AM EDT",
   "ff_as_of_iso": "2026-10-18T10:35:00+00:00",
@@ -862,7 +862,7 @@
     "ap": 1.3097542735042733,
     "gap": -0.3641813568376051,
     "historic_avg_m": -0.0020000000000095497,
-    "outlook_m": -0.02019638414017777
+    "outlook_m": 0.0
   },
   "rain_bump": {
     "2026-10-31": 7.72,
@@ -1015,10 +1015,10 @@
     "mississagagon": {
       "label": "Mississagagon Lake",
       "kind": "level",
-      "value": 268.24,
-      "delta_7d": 3.000000000002956,
+      "value": 268.2342857142857,
+      "delta_7d": 2.428571428572468,
       "unit": "m",
-      "as_of_iso": "2026-10-17T19:00:00+00:00"
+      "as_of_iso": "2026-10-18T11:00:00+00:00"
     },
     "big_gull": {
       "label": "Big Gull Lake",
@@ -1031,18 +1031,18 @@
     "pine": {
       "label": "Pine Lake",
       "kind": "level",
-      "value": 254.898,
-      "delta_7d": 6.799999999998363,
+      "value": 254.9,
+      "delta_7d": 7.208333333332462,
       "unit": "m",
-      "as_of_iso": "2026-10-17T19:00:00+00:00"
+      "as_of_iso": "2026-10-18T11:00:00+00:00"
     },
     "malcolm": {
       "label": "Malcolm Lake",
       "kind": "level",
-      "value": 253.08866666666668,
-      "delta_7d": 5.4500000000018645,
+      "value": 253.08,
+      "delta_7d": 4.625000000001478,
       "unit": "m",
-      "as_of_iso": "2026-10-17T19:00:00+00:00"
+      "as_of_iso": "2026-10-18T11:00:00+00:00"
     },
     "farm": {
       "label": "Farm Lake",
@@ -1079,10 +1079,10 @@
     "mosque": {
       "label": "Mosque Lake",
       "kind": "level",
-      "value": 319.3833333333333,
-      "delta_7d": 4.3333333333350765,
+      "value": 319.38,
+      "delta_7d": 4.000000000002046,
       "unit": "m",
-      "as_of_iso": "2026-10-17T19:00:00+00:00"
+      "as_of_iso": "2026-10-18T11:00:00+00:00"
     },
     "stump": {
       "label": "Stump Lake",

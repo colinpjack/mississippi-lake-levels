@@ -1,5 +1,5 @@
 {
-  "generated_edt": "2026-10-26 03:07",
+  "generated_edt": "2026-10-26 03:56",
   "lake_as_of_iso": "2026-10-25T19:00:00+00:00",
   "lake_as_of_edt": "Oct 25, 3:00 PM EDT",
   "ff_as_of_iso": "2026-10-26T06:35:00+00:00",
@@ -906,18 +906,18 @@
     "crotch": {
       "label": "Crotch Lake",
       "kind": "level",
-      "value": 237.689,
-      "delta_7d": 14.887500000000387,
+      "value": 237.69033333333334,
+      "delta_7d": 15.020833333335304,
       "unit": "m",
-      "as_of_iso": "2026-10-26T06:03:25+00:00"
+      "as_of_iso": "2026-10-26T07:03:25+00:00"
     },
     "dalhousie": {
       "label": "Dalhousie Lake",
       "kind": "level",
-      "value": 156.223,
-      "delta_7d": -5.376736111108471,
+      "value": 156.22252631578948,
+      "delta_7d": -5.424104532161778,
       "unit": "m",
-      "as_of_iso": "2026-10-26T05:30:00+00:00"
+      "as_of_iso": "2026-10-26T06:30:00+00:00"
     },
     "mississippi": {
       "label": "Mississippi Lake",
@@ -948,18 +948,18 @@
     "crotch": {
       "label": "Crotch Lake",
       "kind": "level",
-      "value": 237.689,
-      "delta_7d": 14.887500000000387,
+      "value": 237.69033333333334,
+      "delta_7d": 15.020833333335304,
       "unit": "m",
-      "as_of_iso": "2026-10-26T06:03:25+00:00"
+      "as_of_iso": "2026-10-26T07:03:25+00:00"
     },
     "dalhousie": {
       "label": "Dalhousie Lake",
       "kind": "level",
-      "value": 156.223,
-      "delta_7d": -5.376736111108471,
+      "value": 156.22252631578948,
+      "delta_7d": -5.424104532161778,
       "unit": "m",
-      "as_of_iso": "2026-10-26T05:30:00+00:00"
+      "as_of_iso": "2026-10-26T06:30:00+00:00"
     },
     "mississippi": {
       "label": "Mississippi Lake",
@@ -1111,7 +1111,7 @@
       "value": 144.09,
       "delta_7d": -8.562499999999318,
       "unit": "m",
-      "as_of_iso": "2026-10-26T05:40:00+00:00"
+      "as_of_iso": "2026-10-26T06:40:00+00:00"
     },
     "carleton": {
       "label": "Carleton Place",

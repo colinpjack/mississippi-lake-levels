@@ -1,5 +1,5 @@
 {
-  "generated_edt": "2026-10-26 20:07",
+  "generated_edt": "2026-10-26 20:37",
   "lake_as_of_iso": "2026-10-26T19:00:00+00:00",
   "lake_as_of_edt": "Oct 26, 3:00 PM EDT",
   "ff_as_of_iso": "2026-10-26T23:35:00+00:00",
@@ -862,7 +862,7 @@
     "ap": -0.526748251748252,
     "gap": 0.09434899509723493,
     "historic_avg_m": 0.0020000000000095497,
-    "outlook_m": 0.0005107127421695168
+    "outlook_m": 0.0
   },
   "rain_bump": {
     "2026-11-02": 13.36,
@@ -910,18 +910,18 @@
     "crotch": {
       "label": "Crotch Lake",
       "kind": "level",
-      "value": 237.7017,
-      "delta_7d": 16.157499999999914,
+      "value": 237.70286363636365,
+      "delta_7d": 16.273863636365604,
       "unit": "m",
-      "as_of_iso": "2026-10-26T23:03:24+00:00"
+      "as_of_iso": "2026-10-27T00:03:25+00:00"
     },
     "dalhousie": {
       "label": "Dalhousie Lake",
       "kind": "level",
-      "value": 156.22095734597156,
-      "delta_7d": -5.58100151395422,
+      "value": 156.22082959641256,
+      "delta_7d": -5.593776469854106,
       "unit": "m",
-      "as_of_iso": "2026-10-26T22:30:00+00:00"
+      "as_of_iso": "2026-10-26T23:30:00+00:00"
     },
     "mississippi": {
       "label": "Mississippi Lake",
@@ -952,18 +952,18 @@
     "crotch": {
       "label": "Crotch Lake",
       "kind": "level",
-      "value": 237.7017,
-      "delta_7d": 16.157499999999914,
+      "value": 237.70286363636365,
+      "delta_7d": 16.273863636365604,
       "unit": "m",
-      "as_of_iso": "2026-10-26T23:03:24+00:00"
+      "as_of_iso": "2026-10-27T00:03:25+00:00"
     },
     "dalhousie": {
       "label": "Dalhousie Lake",
       "kind": "level",
-      "value": 156.22095734597156,
-      "delta_7d": -5.58100151395422,
+      "value": 156.22082959641256,
+      "delta_7d": -5.593776469854106,
       "unit": "m",
-      "as_of_iso": "2026-10-26T22:30:00+00:00"
+      "as_of_iso": "2026-10-26T23:30:00+00:00"
     },
     "mississippi": {
       "label": "Mississippi Lake",
@@ -1115,7 +1115,7 @@
       "value": 144.09,
       "delta_7d": -8.562499999999318,
       "unit": "m",
-      "as_of_iso": "2026-10-26T22:40:00+00:00"
+      "as_of_iso": "2026-10-26T23:40:00+00:00"
     },
     "carleton": {
       "label": "Carleton Place",

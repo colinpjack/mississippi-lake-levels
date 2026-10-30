@@ -1,9 +1,9 @@
 {
-  "generated_edt": "2026-10-30 04:48",
+  "generated_edt": "2026-10-30 05:05",
   "lake_as_of_iso": "2026-10-29T19:00:00+00:00",
   "lake_as_of_edt": "Oct 29, 3:00 PM EDT",
-  "ff_as_of_iso": "2026-10-30T07:35:00+00:00",
-  "ff_as_of_edt": "Oct 30, 3:35 AM EDT",
+  "ff_as_of_iso": "2026-10-30T08:35:00+00:00",
+  "ff_as_of_edt": "Oct 30, 4:35 AM EDT",
   "ap_as_of_iso": "2026-10-30T04:45:00+00:00",
   "ap_as_of_edt": "Oct 30, 12:45 AM EDT",
   "water_temp_c": 10.533333333333333,
@@ -862,7 +862,7 @@
     "ap": -0.3718749999999993,
     "gap": 0.3180555555555564,
     "historic_avg_m": 0.0049999999999954525,
-    "outlook_m": -0.007239999999995916
+    "outlook_m": 0.0
   },
   "rain_bump": {},
   "ytd_months": [
@@ -930,10 +930,10 @@
     "ferguson": {
       "label": "Ferguson\u2019s Falls",
       "kind": "flow",
-      "value": 11.67282608695652,
-      "delta_7d": -2.1528683574879235,
+      "value": 11.6625,
+      "delta_7d": -2.1631944444444446,
       "unit": "m3s",
-      "as_of_iso": "2026-10-30T07:35:00+00:00"
+      "as_of_iso": "2026-10-30T08:35:00+00:00"
     },
     "appleton": {
       "label": "Appleton",
@@ -972,10 +972,10 @@
     "ferguson": {
       "label": "Ferguson\u2019s Falls",
       "kind": "flow",
-      "value": 11.67282608695652,
-      "delta_7d": -2.1528683574879235,
+      "value": 11.6625,
+      "delta_7d": -2.1631944444444446,
       "unit": "m3s",
-      "as_of_iso": "2026-10-30T07:35:00+00:00"
+      "as_of_iso": "2026-10-30T08:35:00+00:00"
     },
     "appleton": {
       "label": "Appleton",
@@ -1124,18 +1124,18 @@
     "marble": {
       "label": "Marble Lake outflow",
       "kind": "flow",
-      "value": 1.8490217391304349,
-      "delta_7d": -2.149207427536232,
+      "value": 1.8371153846153847,
+      "delta_7d": -2.161113782051282,
       "unit": "m3s",
-      "as_of_iso": "2026-10-30T07:35:00+00:00"
+      "as_of_iso": "2026-10-30T08:35:00+00:00"
     },
     "dalhousie_out": {
       "label": "Dalhousie outlet",
       "kind": "flow",
-      "value": 5.591868131868132,
-      "delta_7d": 0.20093063186813254,
+      "value": 5.598932038834952,
+      "delta_7d": 0.207994538834952,
       "unit": "m3s",
-      "as_of_iso": "2026-10-30T07:30:00+00:00"
+      "as_of_iso": "2026-10-30T08:30:00+00:00"
     },
     "galetta": {
       "label": "Galetta",
